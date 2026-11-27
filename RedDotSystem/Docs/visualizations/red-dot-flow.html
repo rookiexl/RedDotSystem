@@ -1,0 +1,834 @@
+<div id="red-dot-flow">
+  <style>
+    #red-dot-flow {
+      --rd-gap: calc(var(--font-size-base) * 0.75);
+      color: var(--foreground);
+      font-size: var(--font-size-base);
+      line-height: 1.5;
+      width: 100%;
+    }
+
+    #red-dot-flow * {
+      box-sizing: border-box;
+    }
+
+    #red-dot-flow h2,
+    #red-dot-flow h3,
+    #red-dot-flow p {
+      margin: 0;
+    }
+
+    #red-dot-flow h2 {
+      font-weight: 500;
+    }
+
+    #red-dot-flow h3 {
+      font-size: inherit;
+      font-weight: 500;
+    }
+
+    #red-dot-flow code {
+      color: inherit;
+    }
+
+    #red-dot-flow .rd-shell {
+      display: grid;
+      gap: calc(var(--rd-gap) * 1.25);
+    }
+
+    #red-dot-flow .rd-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--rd-gap);
+      flex-wrap: wrap;
+    }
+
+    #red-dot-flow .rd-status {
+      display: inline-flex;
+      align-items: center;
+      gap: calc(var(--rd-gap) * 0.5);
+      color: var(--muted-foreground);
+    }
+
+    #red-dot-flow .rd-status-mark {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--green);
+      flex: 0 0 auto;
+    }
+
+    #red-dot-flow[data-phase="dirty"] .rd-status-mark {
+      background: var(--orange);
+    }
+
+    #red-dot-flow[data-phase="pending"] .rd-status-mark {
+      background: var(--blue);
+    }
+
+    #red-dot-flow .rd-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: calc(var(--rd-gap) * 0.5);
+    }
+
+    #red-dot-flow .rd-controls .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4em;
+    }
+
+    #red-dot-flow .rd-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.18fr) minmax(260px, 0.82fr);
+      gap: calc(var(--rd-gap) * 1.4);
+      align-items: start;
+    }
+
+    #red-dot-flow .rd-section {
+      min-width: 0;
+    }
+
+    #red-dot-flow .rd-section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--rd-gap);
+      margin-bottom: calc(var(--rd-gap) * 0.65);
+      color: var(--muted-foreground);
+    }
+
+    #red-dot-flow .rd-pipeline {
+      display: grid;
+      gap: 2px;
+    }
+
+    #red-dot-flow .rd-step {
+      display: grid;
+      grid-template-columns: 24px minmax(112px, 0.42fr) minmax(0, 1fr);
+      gap: calc(var(--rd-gap) * 0.7);
+      align-items: start;
+      padding: calc(var(--rd-gap) * 0.6) calc(var(--rd-gap) * 0.7);
+      border-left: 3px solid transparent;
+      background: transparent;
+      transition: background-color 160ms ease, border-color 160ms ease;
+    }
+
+    #red-dot-flow .rd-step.is-done {
+      border-left-color: color-mix(in srgb, var(--green) 60%, transparent);
+    }
+
+    #red-dot-flow .rd-step.is-active {
+      border-left-color: var(--primary);
+      background: color-mix(in srgb, var(--primary) 8%, transparent);
+    }
+
+    #red-dot-flow .rd-step-index {
+      color: var(--muted-foreground);
+      font-variant-numeric: tabular-nums;
+    }
+
+    #red-dot-flow .rd-step-name {
+      font-weight: 500;
+    }
+
+    #red-dot-flow .rd-step-value {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      color: var(--muted-foreground);
+    }
+
+    #red-dot-flow .rd-step.is-active .rd-step-value,
+    #red-dot-flow .rd-step.is-active .rd-step-name {
+      color: var(--foreground);
+    }
+
+    #red-dot-flow .rd-side {
+      display: grid;
+      gap: calc(var(--rd-gap) * 1.15);
+      min-width: 0;
+    }
+
+    #red-dot-flow .rd-preview {
+      display: grid;
+      gap: calc(var(--rd-gap) * 0.6);
+    }
+
+    #red-dot-flow .rd-preview-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: var(--rd-gap);
+      padding: calc(var(--rd-gap) * 0.6) 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #red-dot-flow .rd-preview-row:last-child {
+      border-bottom: 0;
+    }
+
+    #red-dot-flow .rd-preview-label {
+      min-width: 0;
+    }
+
+    #red-dot-flow .rd-preview-meta {
+      display: block;
+      color: var(--muted-foreground);
+      overflow-wrap: anywhere;
+    }
+
+    #red-dot-flow .rd-visual {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 42px;
+      height: 28px;
+      padding: 0 7px;
+      border-radius: 6px;
+      background: var(--red);
+      color: var(--background);
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      transition: opacity 160ms ease;
+    }
+
+    #red-dot-flow .rd-visual[data-visible="false"] {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #red-dot-flow .rd-tree {
+      display: grid;
+      gap: 2px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    #red-dot-flow .rd-tree-node {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: var(--rd-gap);
+      align-items: center;
+      padding: calc(var(--rd-gap) * 0.55) calc(var(--rd-gap) * 0.65);
+      border-left: 1px solid var(--border);
+    }
+
+    #red-dot-flow .rd-tree-node[data-depth="2"] {
+      margin-left: calc(var(--rd-gap) * 1.15);
+    }
+
+    #red-dot-flow .rd-tree-node[data-depth="3"] {
+      margin-left: calc(var(--rd-gap) * 2.3);
+    }
+
+    #red-dot-flow .rd-node-name {
+      overflow-wrap: anywhere;
+    }
+
+    #red-dot-flow .rd-node-result {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45em;
+      color: var(--muted-foreground);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    #red-dot-flow .rd-node-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--red);
+      visibility: hidden;
+    }
+
+    #red-dot-flow .rd-node-result[data-hot="true"] {
+      color: var(--foreground);
+    }
+
+    #red-dot-flow .rd-node-result[data-hot="true"] .rd-node-dot {
+      visibility: visible;
+    }
+
+    #red-dot-flow .rd-rule {
+      display: grid;
+      gap: calc(var(--rd-gap) * 0.45);
+    }
+
+    #red-dot-flow .rd-rule-line {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4em;
+      color: var(--muted-foreground);
+      overflow-wrap: anywhere;
+    }
+
+    #red-dot-flow .rd-rule-result {
+      color: var(--foreground);
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #red-dot-flow .rd-footnote {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: var(--rd-gap);
+      color: var(--muted-foreground);
+    }
+
+    #red-dot-flow .rd-last-action {
+      overflow-wrap: anywhere;
+    }
+
+    #red-dot-flow .rd-snapshot {
+      color: var(--foreground);
+      font-variant-numeric: tabular-nums;
+    }
+
+    @media (max-width: 640px) {
+      #red-dot-flow .rd-layout {
+        grid-template-columns: 1fr;
+      }
+
+      #red-dot-flow .rd-step {
+        grid-template-columns: 24px minmax(96px, 0.45fr) minmax(0, 1fr);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #red-dot-flow * {
+        transition: none !important;
+      }
+    }
+  </style>
+
+  <div class="rd-shell">
+    <header class="rd-header">
+      <h2>邮件红点如何亮起与消失</h2>
+      <div class="rd-status" role="status" aria-live="polite">
+        <span class="rd-status-mark" aria-hidden="true"></span>
+        <span data-field="status">快照与界面同步</span>
+      </div>
+    </header>
+
+    <div class="rd-controls" aria-label="模拟邮件数据变化">
+      <button class="btn" type="button" data-action="unread">
+        <i data-lucide="plus" aria-hidden="true"></i>
+        新增未读 +1
+      </button>
+      <button class="btn" type="button" data-action="reward">
+        <i data-lucide="gift" aria-hidden="true"></i>
+        新增可领取 +1
+      </button>
+      <button class="btn" type="button" data-action="clear">
+        <i data-lucide="check-check" aria-hidden="true"></i>
+        全部处理完
+      </button>
+      <button class="btn btn-primary" type="button" data-action="advance">
+        <i data-lucide="play" aria-hidden="true"></i>
+        推进一次调度
+      </button>
+    </div>
+
+    <div class="rd-layout">
+      <section class="rd-section" aria-labelledby="rd-pipeline-title">
+        <div class="rd-section-head">
+          <h3 id="rd-pipeline-title">一次刷新的真实顺序</h3>
+          <span>数据先变，红点后刷</span>
+        </div>
+        <div class="rd-pipeline">
+          <div class="rd-step" data-step="1">
+            <span class="rd-step-index">01</span>
+            <span class="rd-step-name">数据层</span>
+            <span class="rd-step-value" data-field="data">MailModel：2 封未读，0 封可领</span>
+          </div>
+          <div class="rd-step" data-step="2">
+            <span class="rd-step-index">02</span>
+            <span class="rd-step-name">业务事件</span>
+            <span class="rd-step-value" data-field="event">EventId.NewPublicMailNumUpdate</span>
+          </div>
+          <div class="rd-step" data-step="3">
+            <span class="rd-step-index">03</span>
+            <span class="rd-step-name">标脏</span>
+            <span class="rd-step-value" data-field="dirty">NEW_PUBLIC_MAIL_NUM</span>
+          </div>
+          <div class="rd-step" data-step="4">
+            <span class="rd-step-index">04</span>
+            <span class="rd-step-name">规则计算</span>
+            <span class="rd-step-value" data-field="calculate">CaculateNewPublicMailNum() = 2</span>
+          </div>
+          <div class="rd-step" data-step="5">
+            <span class="rd-step-index">05</span>
+            <span class="rd-step-name">聚合快照</span>
+            <span class="rd-step-value" data-field="snapshot">2 + 0 = 2 · NUMBER</span>
+          </div>
+          <div class="rd-step" data-step="6">
+            <span class="rd-step-index">06</span>
+            <span class="rd-step-name">视图渲染</span>
+            <span class="rd-step-value" data-field="render">RedDotWidget 显示数字“2”</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="rd-side">
+        <section class="rd-section" aria-labelledby="rd-preview-title">
+          <div class="rd-section-head">
+            <h3 id="rd-preview-title">界面快照</h3>
+            <span data-field="preview-state">已同步</span>
+          </div>
+          <div class="rd-preview">
+            <div class="rd-preview-row">
+              <div class="rd-preview-label">
+                <code>MAIN_UI_MAIL</code>
+                <span class="rd-preview-meta">主界面“邮件”入口</span>
+              </div>
+              <span class="rd-visual" data-preview="parent" data-visible="true" aria-label="主界面邮件红点，数量 2">2</span>
+            </div>
+            <div class="rd-preview-row">
+              <div class="rd-preview-label">
+                <code>PUBLIC_MAIL</code>
+                <span class="rd-preview-meta">邮件界面“公共邮件”页签</span>
+              </div>
+              <span class="rd-visual" data-preview="child" data-visible="true" aria-label="公共邮件红点，数量 2">2</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="rd-section" aria-labelledby="rd-tree-title">
+          <div class="rd-section-head">
+            <h3 id="rd-tree-title">父节点结果来自子节点</h3>
+            <span>内部计算结果</span>
+          </div>
+          <ol class="rd-tree" aria-label="邮件红点树">
+            <li class="rd-tree-node" data-depth="1">
+              <code class="rd-node-name">MAIN_UI_MAIL</code>
+              <span class="rd-node-result" data-node="mail" data-hot="true">
+                <span class="rd-node-dot" aria-hidden="true"></span>
+                <span data-node-value="mail">2</span>
+              </span>
+            </li>
+            <li class="rd-tree-node" data-depth="2">
+              <code class="rd-node-name">PUBLIC_MAIL</code>
+              <span class="rd-node-result" data-node="public" data-hot="true">
+                <span class="rd-node-dot" aria-hidden="true"></span>
+                <span data-node-value="public">2</span>
+              </span>
+            </li>
+            <li class="rd-tree-node" data-depth="2">
+              <code class="rd-node-name">BATTLE_MAIL</code>
+              <span class="rd-node-result" data-node="battle" data-hot="false">
+                <span class="rd-node-dot" aria-hidden="true"></span>
+                <span data-node-value="battle">0</span>
+              </span>
+            </li>
+            <li class="rd-tree-node" data-depth="2">
+              <code class="rd-node-name">OTHER_MAIL</code>
+              <span class="rd-node-result" data-node="other" data-hot="false">
+                <span class="rd-node-dot" aria-hidden="true"></span>
+                <span data-node-value="other">0</span>
+              </span>
+            </li>
+          </ol>
+        </section>
+
+        <section class="rd-section" aria-labelledby="rd-rule-title">
+          <div class="rd-section-head">
+            <h3 id="rd-rule-title">总结果就是规则单元相加</h3>
+          </div>
+          <div class="rd-rule">
+            <div class="rd-rule-line">
+              <code>NEW_PUBLIC_MAIL_NUM</code>
+              <span>+</span>
+              <code>PUBLIC_MAIL_REWARD_NUM</code>
+            </div>
+            <div class="rd-rule-line">
+              <span data-field="formula">2 + 0</span>
+              <span>=</span>
+              <span class="rd-rule-result" data-field="formula-result">2</span>
+            </div>
+            <div class="rd-rule-line">
+              结果 &gt; 0 才显示；等于 0 时视图隐藏。
+            </div>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <footer class="rd-footnote">
+      <span class="rd-last-action" data-field="last-action">初始同步：2 封新公共邮件</span>
+      <span>当前快照：<span class="rd-snapshot" data-field="snapshot-summary">2 · NUMBER · 可见</span></span>
+    </footer>
+  </div>
+
+  <script>
+    (() => {
+      const root = document.getElementById("red-dot-flow");
+      if (!root) {
+        return;
+      }
+
+      const UNIT_UNREAD = "NEW_PUBLIC_MAIL_NUM";
+      const UNIT_REWARD = "PUBLIC_MAIL_REWARD_NUM";
+      const STEP_COUNT = 6;
+
+      const defaultState = {
+        data: { unread: 2, reward: 0 },
+        computed: { unread: 2, reward: 0 },
+        rendered: { unread: 2, reward: 0 },
+        dirty: [],
+        stage: 6,
+        pending: false,
+        lastAction: "初始同步：2 封新公共邮件"
+      };
+
+      const fields = {};
+      root.querySelectorAll("[data-field]").forEach((element) => {
+        fields[element.dataset.field] = element;
+      });
+
+      const stepElements = Array.from(root.querySelectorAll("[data-step]"));
+      const previewElements = Array.from(root.querySelectorAll("[data-preview]"));
+      const nodeElements = Array.from(root.querySelectorAll("[data-node]"));
+      const actionButtons = Array.from(root.querySelectorAll("[data-action]"));
+      const advanceButton = root.querySelector('[data-action="advance"]');
+      const clearButton = root.querySelector('[data-action="clear"]');
+
+      let state = createInitialState();
+      let timers = [];
+
+      function cloneCounts(counts) {
+        return {
+          unread: Number(counts && counts.unread) || 0,
+          reward: Number(counts && counts.reward) || 0
+        };
+      }
+
+      function createInitialState() {
+        return {
+          data: cloneCounts(defaultState.data),
+          computed: cloneCounts(defaultState.computed),
+          rendered: cloneCounts(defaultState.rendered),
+          dirty: [],
+          stage: defaultState.stage,
+          pending: false,
+          lastAction: defaultState.lastAction
+        };
+      }
+
+      function normalizeState(saved) {
+        if (!saved || typeof saved !== "object") {
+          return createInitialState();
+        }
+
+        const next = {
+          data: cloneCounts(saved.data),
+          computed: cloneCounts(saved.computed),
+          rendered: cloneCounts(saved.rendered),
+          dirty: Array.isArray(saved.dirty)
+            ? saved.dirty.filter((unit) => unit === UNIT_UNREAD || unit === UNIT_REWARD)
+            : [],
+          stage: Number(saved.stage),
+          pending: false,
+          lastAction: typeof saved.lastAction === "string"
+            ? saved.lastAction
+            : defaultState.lastAction
+        };
+
+        if (!Number.isFinite(next.stage) || next.stage < 1 || next.stage > STEP_COUNT) {
+          next.stage = next.dirty.length > 0 ? 3 : 6;
+        }
+        if (next.dirty.length > 0 && next.stage > 3) {
+          next.stage = 3;
+        }
+        if (next.dirty.length === 0) {
+          next.stage = 6;
+        }
+        return next;
+      }
+
+      function readSavedState() {
+        return window.openai && window.openai.widgetState
+          ? window.openai.widgetState.privateContent
+          : null;
+      }
+
+      function saveState() {
+        if (!window.openai || typeof window.openai.setWidgetState !== "function") {
+          return;
+        }
+
+        const visible = state.rendered.unread + state.rendered.reward > 0;
+        const result = window.openai.setWidgetState({
+          modelContent: {
+            redDotName: "MAIN_UI_MAIL|PUBLIC_MAIL",
+            visible,
+            result: state.rendered.unread + state.rendered.reward,
+            dirtyUnits: state.dirty.slice()
+          },
+          privateContent: {
+            data: cloneCounts(state.data),
+            computed: cloneCounts(state.computed),
+            rendered: cloneCounts(state.rendered),
+            dirty: state.dirty.slice(),
+            stage: state.stage,
+            lastAction: state.lastAction
+          }
+        });
+
+        if (result && typeof result.catch === "function") {
+          result.catch(() => {});
+        }
+      }
+
+      function clearTimers() {
+        timers.forEach((timer) => window.clearTimeout(timer));
+        timers = [];
+      }
+
+      function addDirty(unit) {
+        if (!state.dirty.includes(unit)) {
+          state.dirty.push(unit);
+        }
+      }
+
+      function resultOf(counts) {
+        return counts.unread + counts.reward;
+      }
+
+      function visibleText(result) {
+        return result > 0 ? String(result) : "";
+      }
+
+      function formatDirty() {
+        if (state.dirty.length === 0) {
+          return "无（已完成）";
+        }
+        return state.dirty.join(" + ");
+      }
+
+      function phase() {
+        if (state.pending) {
+          return "pending";
+        }
+        if (state.dirty.length > 0) {
+          return "dirty";
+        }
+        return "synced";
+      }
+
+      function statusText() {
+        if (state.pending) {
+          return "正在计算并通知视图";
+        }
+        if (state.dirty.length > 0) {
+          return "数据已变化，红点等待下一次调度";
+        }
+        return "快照与界面同步";
+      }
+
+      function renderPipeline() {
+        stepElements.forEach((element) => {
+          const step = Number(element.dataset.step);
+          element.classList.toggle("is-done", step < state.stage);
+          element.classList.toggle("is-active", step === state.stage);
+          element.setAttribute("aria-current", step === state.stage ? "step" : "false");
+        });
+      }
+
+      function renderPreviews() {
+        const renderedResult = resultOf(state.rendered);
+        const isPending = state.dirty.length > 0 || state.pending;
+
+        previewElements.forEach((element) => {
+          const visible = renderedResult > 0;
+          element.dataset.visible = visible ? "true" : "false";
+          element.textContent = visibleText(renderedResult);
+          element.setAttribute(
+            "aria-label",
+            `${element.dataset.preview === "parent" ? "主界面邮件红点" : "公共邮件红点"}，${
+              visible ? `数量 ${renderedResult}` : "隐藏"
+            }`
+          );
+        });
+
+        if (fields["preview-state"]) {
+          fields["preview-state"].textContent = isPending
+            ? `旧快照 ${renderedResult}`
+            : `已同步 ${renderedResult}`;
+        }
+      }
+
+      function renderTree() {
+        const mailResult = resultOf(state.computed);
+        const nodeValues = {
+          mail: mailResult,
+          public: mailResult,
+          battle: 0,
+          other: 0
+        };
+
+        nodeElements.forEach((element) => {
+          const value = nodeValues[element.dataset.node] || 0;
+          const valueElement = root.querySelector(
+            `[data-node-value="${element.dataset.node}"]`
+          );
+          if (valueElement) {
+            valueElement.textContent = String(value);
+          }
+          element.dataset.hot = value > 0 ? "true" : "false";
+        });
+      }
+
+      function render() {
+        const dataResult = resultOf(state.data);
+        const computedResult = resultOf(state.computed);
+        const renderedResult = resultOf(state.rendered);
+
+        root.dataset.phase = phase();
+
+        fields.status.textContent = statusText();
+        fields.data.textContent =
+          `MailModel：${state.data.unread} 封未读，${state.data.reward} 封可领`;
+        fields.event.textContent =
+          state.dirty.includes(UNIT_UNREAD) && state.dirty.includes(UNIT_REWARD)
+            ? "NewPublicMailNumUpdate + NewPublicMailRewardNumUpdate"
+            : state.dirty.includes(UNIT_REWARD)
+              ? "EventId.NewPublicMailRewardNumUpdate"
+              : "EventId.NewPublicMailNumUpdate";
+        fields.dirty.textContent = formatDirty();
+        fields.calculate.textContent =
+          `CaculateNewPublicMailNum() + Reward = ${computedResult}`;
+        fields.snapshot.textContent =
+          `${state.computed.unread} + ${state.computed.reward} = ${computedResult} · NUMBER`;
+        fields.render.textContent = renderedResult > 0
+          ? `RedDotWidget 显示数字“${renderedResult}”`
+          : "结果为 0，RedDotWidget 隐藏";
+        fields.formula.textContent = `${state.data.unread} + ${state.data.reward}`;
+        fields["formula-result"].textContent = String(dataResult);
+        fields["last-action"].textContent = state.lastAction;
+        fields["snapshot-summary"].textContent =
+          `${renderedResult} · NUMBER · ${renderedResult > 0 ? "可见" : "隐藏"}`;
+
+        if (advanceButton) {
+          advanceButton.disabled = state.pending || state.dirty.length === 0;
+        }
+        if (clearButton) {
+          clearButton.disabled =
+            state.pending || (state.data.unread === 0 && state.data.reward === 0);
+        }
+
+        renderPipeline();
+        renderPreviews();
+        renderTree();
+      }
+
+      function mutate(action) {
+        if (state.pending) {
+          return;
+        }
+
+        clearTimers();
+
+        if (action === "unread") {
+          state.data.unread += 1;
+          addDirty(UNIT_UNREAD);
+          state.lastAction = `MailModel.NewPublicMailNum → ${state.data.unread}`;
+        } else if (action === "reward") {
+          state.data.reward += 1;
+          addDirty(UNIT_REWARD);
+          state.lastAction = `MailModel.NewPublicMailRewardNum → ${state.data.reward}`;
+        } else if (action === "clear") {
+          if (state.data.unread > 0) {
+            addDirty(UNIT_UNREAD);
+          }
+          if (state.data.reward > 0) {
+            addDirty(UNIT_REWARD);
+          }
+          state.data.unread = 0;
+          state.data.reward = 0;
+          state.lastAction = "业务处理完成：未读数与可领奖数都变为 0";
+        } else {
+          return;
+        }
+
+        state.stage = 3;
+        render();
+        saveState();
+      }
+
+      function queueStage(stage, delay, callback) {
+        const timer = window.setTimeout(() => {
+          state.stage = stage;
+          if (typeof callback === "function") {
+            callback();
+          }
+          render();
+        }, delay);
+        timers.push(timer);
+      }
+
+      function advance() {
+        if (state.pending || state.dirty.length === 0) {
+          return;
+        }
+
+        clearTimers();
+        state.pending = true;
+        state.stage = 4;
+        state.computed = cloneCounts(state.data);
+        state.lastAction = "调度器开始计算脏单元";
+        render();
+        saveState();
+
+        queueStage(5, 260);
+        queueStage(6, 560, () => {
+          state.rendered = cloneCounts(state.computed);
+        });
+
+        const finishTimer = window.setTimeout(() => {
+          state.rendered = cloneCounts(state.computed);
+          state.dirty = [];
+          state.pending = false;
+          state.stage = 6;
+          state.lastAction =
+            resultOf(state.computed) > 0
+              ? "快照已推送给订阅者，红点显示最新结果"
+              : "结果为 0，快照已推送给订阅者，红点消失";
+          render();
+          saveState();
+        }, 860);
+        timers.push(finishTimer);
+      }
+
+      actionButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const action = button.dataset.action;
+          if (action === "advance") {
+            advance();
+          } else {
+            mutate(action);
+          }
+        });
+      });
+
+      document.addEventListener("openai:set_globals", (event) => {
+        const saved = event.detail && event.detail.globals
+          ? event.detail.globals.widgetState
+          : null;
+        if (saved && saved.privateContent) {
+          clearTimers();
+          state = normalizeState(saved.privateContent);
+          render();
+        }
+      });
+
+      state = normalizeState(readSavedState());
+      render();
+    })();
+  </script>
+</div>
