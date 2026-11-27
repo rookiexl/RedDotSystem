@@ -163,11 +163,17 @@ public class RedDotInfo
         if (string.IsNullOrEmpty(redDotUnit))
         {
             Debug.LogError($"红点名:{RedDotName}不能绑定空红点运算单元!");
+            RedDotModel.Singleton.RecordRegistrationIssue(
+                "RED_DOT_UNIT_BIND_EMPTY",
+                $"红点名:{RedDotName}尝试绑定空红点运算单元");
             return false;
         }
         if (mRedDotUnitBindDataMap.ContainsKey(redDotUnit))
         {
             //Debug.LogError($"红点名:{RedDotName}重复添加影响红点运算单元:{redDotUnit.ToString()}，添加失败！");
+            RedDotModel.Singleton.RecordRegistrationIssue(
+                "RED_DOT_DUPLICATE_BINDING",
+                $"红点名:{RedDotName}重复绑定红点运算单元:{redDotUnit}");
             return false;
         }
 

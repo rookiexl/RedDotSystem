@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Game.RedDot.Tests
 {
@@ -180,10 +181,28 @@ namespace Game.RedDot.Tests
 
             RedDotInitializer.Singleton.CompleteRegistration();
 
+            Assert.IsNotNull(RedDotInitializer.Singleton.LastValidationReport);
+            Assert.IsFalse(RedDotInitializer.Singleton.HasValidationErrors);
             CollectionAssert.Contains(childInfo.RedDotUnitList, redDotUnit);
             CollectionAssert.Contains(parentInfo.RedDotUnitList, redDotUnit);
             RedDotManager.Singleton.EvaluateAllDirtyNow();
             Assert.AreEqual(6, RedDotManager.Singleton.GetRedDotResult(parentRedDotName));
+        }
+
+        [Test]
+        public void AutomaticValidationCanBeDisabled()
+        {
+            var initializer = RedDotInitializer.Singleton;
+            initializer.EnableAutomaticValidation = false;
+            initializer.BeginRegistration();
+            Assert.IsTrue(RedDotModel.Singleton.AddRedDotInfo(
+                "TEST_DISABLED_VALIDATION_PARENT|CHILD",
+                "Automatic validation disabled test").Item1);
+
+            initializer.CompleteRegistration();
+
+            Assert.IsNull(initializer.LastValidationReport);
+            Assert.IsFalse(initializer.HasValidationErrors);
         }
 
         [Test]
@@ -227,6 +246,200 @@ namespace Game.RedDot.Tests
             Assert.IsTrue(secondChildInfo.RemoveRedDotUnit(redDotUnit));
             CollectionAssert.DoesNotContain(parentInfo.RedDotUnitList, redDotUnit);
             Assert.AreEqual(0, RedDotManager.Singleton.GetRedDotResult(parentRedDotName));
+        }
+
+        [Test]
+        public void ThrowingCalculationPreservesLastValueAndDoesNotBlockBatch()
+        {
+            const string redDotName = "TEST_THROWING_CALCULATION";
+            const string firstUnit = "TEST_THROWING_CALCULATION_FIRST";
+            const string secondUnit = "TEST_THROWING_CALCULATION_SECOND";
+            var shouldThrow = false;
+            var secondValue = 1;
+
+            Assert.IsTrue(RedDotModel.Singleton.AddRedDotInfo(
+                redDotName,
+                "Throwing calculation test").Item1);
+            Assert.IsTrue(RedDotModel.Singleton.AddRedDotUnitInfo(
+                firstUnit,
+                "Throwing calculation first unit",
+                () =>
+                {
+                    if (shouldThrow)
+                    {
+                        throw new InvalidOperationException("Intentional calculation failure");
+                    }
+                    return 3;
+                },
+                RedDotType.NUMBER).Item1);
+            Assert.IsTrue(RedDotModel.Singleton.AddRedDotUnitInfo(
+                secondUnit,
+                "Throwing calculation second unit",
+                () => secondValue,
+                RedDotType.NUMBER).Item1);
+
+            var redDotInfo = RedDotModel.Singleton.GetRedDotInfoByName(redDotName);
+            Assert.IsTrue(redDotInfo.AddRedDotUnit(firstUnit));
+            Assert.IsTrue(redDotInfo.AddRedDotUnit(secondUnit));
+            RedDotManager.Singleton.EvaluateAllDirtyNow();
+            Assert.AreEqual(4, RedDotManager.Singleton.GetRedDotResult(redDotName));
+
+            shouldThrow = true;
+            secondValue = 2;
+            RedDotManager.Singleton.MarkRedDotUnitDirty(firstUnit);
+            RedDotManager.Singleton.MarkRedDotUnitDirty(secondUnit);
+
+            var previousIgnoreValue = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;
+            try
+            {
+                RedDotManager.Singleton.EvaluateAllDirtyNow();
+            }
+            finally
+            {
+                LogAssert.ignoreFailingMessages = previousIgnoreValue;
+            }
+
+            Assert.AreEqual(5, RedDotManager.Singleton.GetRedDotResult(redDotName));
+        }
+
+        [Test]
+        public void ThrowingSubscriberDoesNotBlockOtherSubscribers()
+        {
+            const string redDotName = "TEST_THROWING_SUBSCRIBER";
+            const string redDotUnit = "TEST_THROWING_SUBSCRIBER_UNIT";
+            var successfulCallbackCount = 0;
+
+            Assert.IsTrue(RedDotModel.Singleton.AddRedDotInfo(
+                redDotName,
+                "Throwing subscriber test").Item1);
+            Assert.IsTrue(RedDotModel.Singleton.AddRedDotUnitInfo(
+                redDotUnit,
+                "Throwing subscriber test unit",
+                () => 1,
+                RedDotType.RED).Item1);
+            Assert.IsTrue(RedDotModel.Singleton.GetRedDotInfoByName(redDotName)
+                .AddRedDotUnit(redDotUnit));
+
+            using (RedDotManager.Singleton.Subscribe(
+                       redDotName,
+                       _ => throw new InvalidOperationException("Intentional subscriber failure")))
+            using (RedDotManager.Singleton.Subscribe(
+                       redDotName,
+                       _ => successfulCallbackCount++))
+            {
+                RedDotManager.Singleton.ForceRefreshRedDotName(redDotName);
+                var previousIgnoreValue = LogAssert.ignoreFailingMessages;
+                LogAssert.ignoreFailingMessages = true;
+                try
+                {
+                    RedDotManager.Singleton.EvaluateAllDirtyNow();
+                }
+                finally
+                {
+                    LogAssert.ignoreFailingMessages = previousIgnoreValue;
+                }
+            }
+
+            Assert.GreaterOrEqual(successfulCallbackCount, 1);
+        }
+
+        [Test]
+        public void ValidationReportsMissingParentAndMissingUnitDefinition()
+        {
+            const string childRedDotName = "TEST_VALIDATION_MISSING_PARENT|CHILD";
+            const string missingUnit = "TEST_VALIDATION_MISSING_UNIT";
+
+            Assert.IsTrue(RedDotModel.Singleton.AddRedDotInfo(
+                childRedDotName,
+                "Validation missing parent test").Item1);
+            Assert.IsTrue(RedDotModel.Singleton.GetRedDotInfoByName(childRedDotName)
+                .AddRedDotUnit(missingUnit));
+
+            var report = RedDotModel.Singleton.Validate();
+
+            Assert.IsTrue(report.HasErrors);
+            Assert.IsTrue(HasIssue(
+                report,
+                "RED_DOT_PARENT_MISSING",
+                RedDotValidationSeverity.Error));
+            Assert.IsTrue(HasIssue(
+                report,
+                "RED_DOT_UNIT_REFERENCE_MISSING",
+                RedDotValidationSeverity.Error));
+        }
+
+        [Test]
+        public void ValidationReportsNullFunctionAndEmptyLeaf()
+        {
+            Assert.IsTrue(RedDotModel.Singleton.AddRedDotInfo(
+                "TEST_VALIDATION_EMPTY_LEAF",
+                "Empty leaf test").Item1);
+            Assert.IsTrue(RedDotModel.Singleton.AddRedDotUnitInfo(
+                "TEST_VALIDATION_UNUSED_UNIT",
+                "Unused unit test",
+                null,
+                RedDotType.NUMBER).Item1);
+
+            var report = RedDotModel.Singleton.Validate();
+
+            Assert.IsTrue(report.HasErrors);
+            Assert.IsTrue(HasIssue(
+                report,
+                "RED_DOT_UNIT_FUNC_MISSING",
+                RedDotValidationSeverity.Error));
+            Assert.IsTrue(HasIssue(
+                report,
+                "RED_DOT_EMPTY_LEAF",
+                RedDotValidationSeverity.Warning));
+            Assert.IsTrue(HasIssue(
+                report,
+                "RED_DOT_UNIT_UNUSED",
+                RedDotValidationSeverity.Warning));
+        }
+
+        [Test]
+        public void DuplicateRegistrationsAppearInValidationReport()
+        {
+            const string redDotName = "TEST_VALIDATION_DUPLICATE";
+            const string redDotUnit = "TEST_VALIDATION_DUPLICATE_UNIT";
+
+            var previousIgnoreValue = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;
+            try
+            {
+                Assert.IsTrue(RedDotModel.Singleton.AddRedDotInfo(
+                    redDotName,
+                    "Duplicate node test").Item1);
+                Assert.IsFalse(RedDotModel.Singleton.AddRedDotInfo(
+                    redDotName,
+                    "Duplicate node test").Item1);
+                Assert.IsTrue(RedDotModel.Singleton.AddRedDotUnitInfo(
+                    redDotUnit,
+                    "Duplicate unit test",
+                    () => 1,
+                    RedDotType.NUMBER).Item1);
+                Assert.IsFalse(RedDotModel.Singleton.AddRedDotUnitInfo(
+                    redDotUnit,
+                    "Duplicate unit test",
+                    () => 1,
+                    RedDotType.NUMBER).Item1);
+            }
+            finally
+            {
+                LogAssert.ignoreFailingMessages = previousIgnoreValue;
+            }
+
+            var report = RedDotModel.Singleton.Validate();
+
+            Assert.IsTrue(HasIssue(
+                report,
+                "RED_DOT_DUPLICATE_NODE",
+                RedDotValidationSeverity.Error));
+            Assert.IsTrue(HasIssue(
+                report,
+                "RED_DOT_DUPLICATE_UNIT",
+                RedDotValidationSeverity.Error));
         }
 
         [Test]
@@ -294,6 +507,21 @@ namespace Game.RedDot.Tests
                     runtimeSource.Contains(forbiddenToken, StringComparison.Ordinal),
                     $"RedDot.Runtime must not contain business dependency: {forbiddenToken}");
             }
+        }
+
+        private static bool HasIssue(
+            RedDotValidationReport report,
+            string code,
+            RedDotValidationSeverity severity)
+        {
+            foreach (var issue in report.Issues)
+            {
+                if (issue.Code == code && issue.Severity == severity)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static void AdvanceManagerFrames()

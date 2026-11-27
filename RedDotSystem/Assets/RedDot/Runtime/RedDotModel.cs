@@ -64,6 +64,11 @@ public class RedDotModel
     private List<string> mTempParentRedDotNameList;
 
     /// <summary>
+    /// 重建反向索引时复用的待移除空单元列表。
+    /// </summary>
+    private List<string> mTempEmptyRedDotUnitNameList;
+
+    /// <summary>
     /// 当前是否处于批量派生关系更新阶段。
     /// </summary>
     private int mDerivedDataBatchDepth;
@@ -72,6 +77,11 @@ public class RedDotModel
     /// 派生关系是否存在待重建数据。
     /// </summary>
     private bool mDerivedDataDirty;
+
+    /// <summary>
+    /// 注册过程中已发现的配置问题，供统一校验报告汇总。
+    /// </summary>
+    private readonly List<RedDotValidationIssue> mRegistrationIssues;
 
     /// <summary>
     /// 红点前缀树
@@ -92,8 +102,10 @@ public class RedDotModel
         mRedDotInfoMap = new Dictionary<string, RedDotInfo>();
         mRedDotUnitNameMap = new Dictionary<string, List<string>>();
         mTempParentRedDotNameList = new List<string>();
+        mTempEmptyRedDotUnitNameList = new List<string>();
         mDerivedDataBatchDepth = 0;
         mDerivedDataDirty = false;
+        mRegistrationIssues = new List<RedDotValidationIssue>();
         RedDotTrie = new Trie(Separator);
     }
 
@@ -108,6 +120,7 @@ public class RedDotModel
             return;
         }
         IsInitCompelte = true;
+        mRegistrationIssues.Clear();
     }
 
     /// <summary>
@@ -119,8 +132,11 @@ public class RedDotModel
         mRedDotUnitResultMap.Clear();
         mRedDotInfoMap.Clear();
         mRedDotUnitNameMap.Clear();
+        mTempParentRedDotNameList.Clear();
+        mTempEmptyRedDotUnitNameList.Clear();
         mDerivedDataBatchDepth = 0;
         mDerivedDataDirty = false;
+        mRegistrationIssues.Clear();
         RedDotTrie.Dispose();
         IsInitCompelte = false;
     }
@@ -137,6 +153,9 @@ public class RedDotModel
         if (mRedDotInfoMap.TryGetValue(redDotName, out var existRedDotInfo))
         {
             Debug.LogError($"已添加红点名:{redDotName}的红点信息,请勿重复添加,添加失败!");
+            RecordRegistrationIssue(
+                "RED_DOT_DUPLICATE_NODE",
+                $"重复注册红点名:{redDotName}");
             return (false, existRedDotInfo);
         }
         var redDotInfo = new RedDotInfo();
@@ -160,6 +179,9 @@ public class RedDotModel
         if (mRedDotInfoMap.TryGetValue(redDotName, out var existRedDotInfo))
         {
             Debug.LogError($"已添加红点名:{redDotName}的红点信息,请勿重复添加,添加失败!");
+            RecordRegistrationIssue(
+                "RED_DOT_DUPLICATE_NODE",
+                $"重复注册红点名:{redDotName}");
             return (false, existRedDotInfo);
         }
         var redDotHandler = new T();
@@ -188,6 +210,9 @@ public class RedDotModel
         if (mRedDotInfoMap.TryGetValue(redDotName, out var existRedDotInfo))
         {
             Debug.LogError($"已添加红点名:{redDotName}的红点信息,请勿重复添加,添加失败!");
+            RecordRegistrationIssue(
+                "RED_DOT_DUPLICATE_NODE",
+                $"重复注册红点名:{redDotName}");
             return (false, existRedDotInfo);
         }
         var redDotHandler = new T();
@@ -264,6 +289,170 @@ public class RedDotModel
     }
 
     /// <summary>
+    /// 清空注册阶段累计的配置问题。
+    /// </summary>
+    internal void ClearValidationIssues()
+    {
+        mRegistrationIssues.Clear();
+    }
+
+    /// <summary>
+    /// 记录注册阶段已发现的配置问题。
+    /// </summary>
+    internal void RecordRegistrationIssue(
+        string code,
+        string message,
+        RedDotValidationSeverity severity = RedDotValidationSeverity.Error)
+    {
+        mRegistrationIssues.Add(new RedDotValidationIssue(severity, code, message));
+    }
+
+    /// <summary>
+    /// 校验当前红点定义图，并返回完整报告。
+    /// Note:
+    /// 注册流程应在 CompleteRegistration() 完成父子关系派生后调用本方法。
+    /// </summary>
+    public RedDotValidationReport Validate()
+    {
+        var report = new RedDotValidationReport();
+        report.AddRange(mRegistrationIssues);
+        ValidateRedDotNames(report);
+        ValidateRedDotUnits(report);
+        return report;
+    }
+
+    /// <summary>
+    /// 校验红点名层级、父节点和空叶子节点。
+    /// </summary>
+    private void ValidateRedDotNames(RedDotValidationReport report)
+    {
+        var missingParentNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach(var redDotInfoEntry in mRedDotInfoMap)
+        {
+            var redDotName = redDotInfoEntry.Key;
+            if(!ValidateRedDotNameSegments(redDotName, report))
+            {
+                continue;
+            }
+
+            var segments = redDotName.Split(
+                new[] { Separator },
+                StringSplitOptions.None);
+            var prefix = string.Empty;
+            for(var index = 0; index < segments.Length - 1; index++)
+            {
+                prefix = index == 0
+                    ? segments[index]
+                    : $"{prefix}{Separator}{segments[index]}";
+                if(!mRedDotInfoMap.ContainsKey(prefix) &&
+                   missingParentNames.Add(prefix))
+                {
+                    report.Add(
+                        RedDotValidationSeverity.Error,
+                        "RED_DOT_PARENT_MISSING",
+                        $"红点名:{redDotName}缺少父节点:{prefix}");
+                }
+            }
+
+            var trieNode = RedDotTrie.GetWordNode(redDotName);
+            var hasChild = trieNode != null && trieNode.ChildCount > 0;
+
+            if(!hasChild && redDotInfoEntry.Value.RedDotUnitList.Count == 0)
+            {
+                report.Add(
+                    RedDotValidationSeverity.Warning,
+                    "RED_DOT_EMPTY_LEAF",
+                    $"红点名:{redDotName}没有绑定运算单元，也没有子节点");
+            }
+        }
+    }
+
+    /// <summary>
+    /// 校验单个红点名的分段格式。
+    /// </summary>
+    private bool ValidateRedDotNameSegments(
+        string redDotName,
+        RedDotValidationReport report)
+    {
+        if(string.IsNullOrWhiteSpace(redDotName))
+        {
+            report.Add(
+                RedDotValidationSeverity.Error,
+                "RED_DOT_NAME_EMPTY",
+                "红点名不能为空");
+            return false;
+        }
+
+        var hasInvalidSegment = false;
+        var segments = redDotName.Split(
+            new[] { Separator },
+            StringSplitOptions.None);
+        foreach(var segment in segments)
+        {
+            if(!string.IsNullOrWhiteSpace(segment))
+            {
+                continue;
+            }
+            hasInvalidSegment = true;
+            report.Add(
+                RedDotValidationSeverity.Error,
+                "RED_DOT_NAME_EMPTY_SEGMENT",
+                $"红点名:{redDotName}包含空层级");
+        }
+        return !hasInvalidSegment;
+    }
+
+    /// <summary>
+    /// 校验运算单元定义、引用和未使用项。
+    /// </summary>
+    private void ValidateRedDotUnits(RedDotValidationReport report)
+    {
+        foreach(var redDotUnitInfoEntry in mRedDotUnitInfoMap)
+        {
+            var redDotUnit = redDotUnitInfoEntry.Key;
+            if(string.IsNullOrWhiteSpace(redDotUnit))
+            {
+                report.Add(
+                    RedDotValidationSeverity.Error,
+                    "RED_DOT_UNIT_NAME_EMPTY",
+                    "红点运算单元名不能为空");
+            }
+
+            if(redDotUnitInfoEntry.Value.RedDotUnitCalculateFunc == null)
+            {
+                report.Add(
+                    RedDotValidationSeverity.Error,
+                    "RED_DOT_UNIT_FUNC_MISSING",
+                    $"红点运算单元:{redDotUnit}未绑定计算函数");
+            }
+
+            if(!mRedDotUnitNameMap.TryGetValue(redDotUnit, out var redDotNames) ||
+               redDotNames.Count == 0)
+            {
+                report.Add(
+                    RedDotValidationSeverity.Warning,
+                    "RED_DOT_UNIT_UNUSED",
+                    $"红点运算单元:{redDotUnit}未被任何红点名使用");
+            }
+        }
+
+        foreach(var redDotInfoEntry in mRedDotInfoMap)
+        {
+            foreach(var redDotUnit in redDotInfoEntry.Value.RedDotUnitList)
+            {
+                if(mRedDotUnitInfoMap.ContainsKey(redDotUnit))
+                {
+                    continue;
+                }
+                report.Add(
+                    RedDotValidationSeverity.Error,
+                    "RED_DOT_UNIT_REFERENCE_MISSING",
+                    $"红点名:{redDotInfoEntry.Key}引用了未定义的红点运算单元:{redDotUnit}");
+            }
+        }
+    }
+
+    /// <summary>
     /// 根据所有红点名的本地单元绑定，重新构建父级有效单元集合和反向索引。
     /// Note:
     /// 子节点可以先于父节点注册。父节点后续注册时，再次执行本方法即可补齐汇总关系。
@@ -278,6 +467,7 @@ public class RedDotModel
 
         foreach(var redDotInfo in mRedDotInfoMap.Values)
         {
+            var parentNamesLoaded = false;
             foreach(var redDotUnitBindData in redDotInfo.LocalRedDotUnitBindDataMap.Values)
             {
                 var redDotUnit = redDotUnitBindData.RedDotUnit;
@@ -287,9 +477,13 @@ public class RedDotModel
                     continue;
                 }
 
-                mTempParentRedDotNameList.Clear();
-                GetParentRedDotNameList(redDotName: redDotInfo.RedDotName,
-                    parentRedDotNameList: ref mTempParentRedDotNameList);
+                if(!parentNamesLoaded)
+                {
+                    mTempParentRedDotNameList.Clear();
+                    GetParentRedDotNameList(redDotName: redDotInfo.RedDotName,
+                        parentRedDotNameList: ref mTempParentRedDotNameList);
+                    parentNamesLoaded = true;
+                }
                 foreach(var parentRedDotName in mTempParentRedDotNameList)
                 {
                     var parentRedDotInfo = GetRedDotInfoByName(parentRedDotName);
@@ -298,13 +492,29 @@ public class RedDotModel
             }
         }
 
-        mRedDotUnitNameMap.Clear();
+        foreach(var redDotNames in mRedDotUnitNameMap.Values)
+        {
+            redDotNames.Clear();
+        }
         foreach(var redDotInfo in mRedDotInfoMap.Values)
         {
             foreach(var redDotUnit in redDotInfo.RedDotUnitList)
             {
                 AddRedDotUnitAndName(redDotUnit, redDotInfo.RedDotName);
             }
+        }
+
+        mTempEmptyRedDotUnitNameList.Clear();
+        foreach(var redDotUnitNameEntry in mRedDotUnitNameMap)
+        {
+            if(redDotUnitNameEntry.Value.Count == 0)
+            {
+                mTempEmptyRedDotUnitNameList.Add(redDotUnitNameEntry.Key);
+            }
+        }
+        foreach(var emptyRedDotUnitName in mTempEmptyRedDotUnitNameList)
+        {
+            mRedDotUnitNameMap.Remove(emptyRedDotUnitName);
         }
     }
 
@@ -335,6 +545,9 @@ public class RedDotModel
         if(mRedDotUnitInfoMap.TryGetValue(redDotUnit, out var redDotUnitInfo))
         {
             Debug.LogError($"已添加红点运算单元:{redDotUnit}的红点运算单元信息,请勿重复添加,添加失败!");
+            RecordRegistrationIssue(
+                "RED_DOT_DUPLICATE_UNIT",
+                $"重复注册红点运算单元:{redDotUnit}");
             return (false, redDotUnitInfo);
         }
         redDotUnitInfo = new RedDotUnitInfo();

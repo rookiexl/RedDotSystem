@@ -46,6 +46,29 @@ public class RedDotInitializer : IRedDotRegistrar
     public bool IsRegistrationOpen { get; private set; }
 
     /// <summary>
+    /// 是否在注册完成时自动执行配置校验。
+    /// Note:
+    /// 默认只在 Editor 和 Development Build 开启；Release Player 可手动开启。
+    /// </summary>
+    public bool EnableAutomaticValidation { get; set; }
+
+    /// <summary>
+    /// 最近一次注册完成时的配置校验报告。
+    /// </summary>
+    public RedDotValidationReport LastValidationReport { get; private set; }
+
+    /// <summary>
+    /// 最近一次配置校验是否包含错误。
+    /// </summary>
+    public bool HasValidationErrors
+    {
+        get
+        {
+            return LastValidationReport != null && LastValidationReport.HasErrors;
+        }
+    }
+
+    /// <summary>
     /// 所有的功能红点初始化器Map[红点初始化名字, 功能红点初始化器实例]
     /// </summary>
     public Dictionary<string, FuncRDInitializer> AllFuncRedDotInitializerMap
@@ -69,6 +92,8 @@ public class RedDotInitializer : IRedDotRegistrar
     {
         IsInitComplete = false;
         IsRegistrationOpen = false;
+        LastValidationReport = null;
+        ResetAutomaticValidationPolicy();
         AllFuncRedDotInitializerMap = new Dictionary<string, FuncRDInitializer>();
         mRegisteredInitializers = new List<FuncRDInitializer>();
     }
@@ -91,6 +116,7 @@ public class RedDotInitializer : IRedDotRegistrar
 
         mRegisteredInitializers.Clear();
         AllFuncRedDotInitializerMap.Clear();
+        RedDotModel.Singleton.ClearValidationIssues();
         IsRegistrationOpen = true;
         RedDotModel.Singleton.BeginDerivedDataBatch();
     }
@@ -146,6 +172,12 @@ public class RedDotInitializer : IRedDotRegistrar
 
         IsRegistrationOpen = false;
         RedDotModel.Singleton.EndDerivedDataBatch();
+        LastValidationReport = null;
+        if(EnableAutomaticValidation)
+        {
+            LastValidationReport = RedDotModel.Singleton.Validate();
+            LogValidationReport(LastValidationReport);
+        }
         IsInitComplete = true;
     }
 
@@ -164,6 +196,59 @@ public class RedDotInitializer : IRedDotRegistrar
         AllFuncRedDotInitializerMap.Clear();
         IsRegistrationOpen = false;
         IsInitComplete = false;
+        LastValidationReport = null;
+        ResetAutomaticValidationPolicy();
+    }
+
+    /// <summary>
+    /// 恢复当前构建类型对应的默认自动校验策略。
+    /// </summary>
+    private void ResetAutomaticValidationPolicy()
+    {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        EnableAutomaticValidation = true;
+#else
+        EnableAutomaticValidation = false;
+#endif
+    }
+
+    /// <summary>
+    /// 输出配置校验结果。
+    /// </summary>
+    private void LogValidationReport(RedDotValidationReport report)
+    {
+        if(report == null)
+        {
+            return;
+        }
+
+        foreach(var issue in report.Issues)
+        {
+            var message = $"[{issue.Code}] {issue.Message}";
+            if(issue.Severity == RedDotValidationSeverity.Error)
+            {
+                Debug.LogError(message);
+            }
+            else
+            {
+                Debug.LogWarning(message);
+            }
+        }
+
+        if(report.HasErrors)
+        {
+            Debug.LogError(
+                $"红点配置校验失败: {report.ErrorCount} 个错误, {report.WarningCount} 个警告");
+        }
+        else if(report.WarningCount > 0)
+        {
+            Debug.LogWarning(
+                $"红点配置校验完成: {report.WarningCount} 个警告");
+        }
+        else
+        {
+            Debug.Log("红点配置校验通过");
+        }
     }
 
     /// <summary>

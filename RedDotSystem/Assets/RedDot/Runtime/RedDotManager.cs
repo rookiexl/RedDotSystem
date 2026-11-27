@@ -86,7 +86,7 @@ public class RedDotManager : IRedDotService
     /// <summary>
     /// 按红点名索引的视图订阅者。
     /// </summary>
-    private Dictionary<string, Action<RedDotSnapshot>> mRedDotNameSubscriberMap;
+    private Dictionary<string, Action<RedDotSnapshot>[]> mRedDotNameSubscriberMap;
 
     /// <summary>
     /// 当前批次的运算单元结果变化标记Map<红点运算单元，结果是否变化>。
@@ -116,7 +116,8 @@ public class RedDotManager : IRedDotService
         mWaitCalculateRedDotUnitSet = new HashSet<string>();
         mCaculatedRedDotUnitResultChangeMap = new Dictionary<string, bool>();
         mNeedRefreshRedDotNameSet = new HashSet<string>();
-        mRedDotNameSubscriberMap = new Dictionary<string, Action<RedDotSnapshot>>();
+        mRedDotNameSubscriberMap =
+            new Dictionary<string, Action<RedDotSnapshot>[]>();
         mFramePassed = 0;
     }
 
@@ -244,7 +245,14 @@ public class RedDotManager : IRedDotService
         }
 
         mRedDotNameSubscriberMap.TryGetValue(redDotName, out var subscribers);
-        mRedDotNameSubscriberMap[redDotName] = subscribers + onChanged;
+        var subscriberCount = subscribers != null ? subscribers.Length : 0;
+        var newSubscribers = new Action<RedDotSnapshot>[subscriberCount + 1];
+        if(subscriberCount > 0)
+        {
+            Array.Copy(subscribers, newSubscribers, subscriberCount);
+        }
+        newSubscribers[subscriberCount] = onChanged;
+        mRedDotNameSubscriberMap[redDotName] = newSubscribers;
         return new RedDotSubscription(() => Unsubscribe(redDotName, onChanged));
     }
 
@@ -270,15 +278,34 @@ public class RedDotManager : IRedDotService
             return;
         }
 
-        subscribers -= onChanged;
-        if (subscribers == null)
+        var callbackIndex = Array.IndexOf(subscribers, onChanged);
+        if(callbackIndex < 0)
+        {
+            return;
+        }
+
+        if (subscribers.Length == 1)
         {
             mRedDotNameSubscriberMap.Remove(redDotName);
+            return;
         }
-        else
+
+        var newSubscribers = new Action<RedDotSnapshot>[subscribers.Length - 1];
+        if(callbackIndex > 0)
         {
-            mRedDotNameSubscriberMap[redDotName] = subscribers;
+            Array.Copy(subscribers, 0, newSubscribers, 0, callbackIndex);
         }
+        var trailingCount = subscribers.Length - callbackIndex - 1;
+        if(trailingCount > 0)
+        {
+            Array.Copy(
+                subscribers,
+                callbackIndex + 1,
+                newSubscribers,
+                callbackIndex,
+                trailingCount);
+        }
+        mRedDotNameSubscriberMap[redDotName] = newSubscribers;
     }
 
     private void NotifyRedDotNameSubscribers(RedDotSnapshot snapshot)
@@ -289,7 +316,27 @@ public class RedDotManager : IRedDotService
             return;
         }
 
-        subscribers?.Invoke(snapshot);
+        if(subscribers == null || subscribers.Length == 0)
+        {
+            return;
+        }
+
+        // 订阅数组只在绑定变化时分配，通知热路径不再调用 GetInvocationList。
+        foreach(var callback in subscribers)
+        {
+            try
+            {
+                callback.Invoke(snapshot);
+            }
+            catch(Exception exception)
+            {
+                var callbackMethod = callback.Method;
+                Debug.LogException(new InvalidOperationException(
+                    $"红点名:{snapshot.RedDotName}订阅回调:" +
+                    $"{callbackMethod.DeclaringType?.Name}.{callbackMethod.Name}执行失败",
+                    exception));
+            }
+        }
     }
 
     /// <summary>
@@ -496,17 +543,34 @@ public class RedDotManager : IRedDotService
         }
         mForceRefreshRedDotNameSet.Clear();
         
-        // 通知上层相关红点名结果变化，触发刷新回调
-        foreach (var resultChangedRedDotName in mNeedRefreshRedDotNameSet)
+        // 通知上层相关红点名结果变化，触发刷新回调。
+        // 无论通知过程是否出现异常，都必须清理当前批次状态。
+        try
         {
-            // 在动态红点名移除的情况下是可能出现红点名需要刷新但不存在的情况
-            if(!RedDotModel.Singleton.IsRedDotNameExist(resultChangedRedDotName))
+            foreach (var resultChangedRedDotName in mNeedRefreshRedDotNameSet)
             {
-                continue;
+                // 在动态红点名移除的情况下是可能出现红点名需要刷新但不存在的情况
+                if(!RedDotModel.Singleton.IsRedDotNameExist(resultChangedRedDotName))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    TriggerRedDotNameUpdate(resultChangedRedDotName);
+                }
+                catch(Exception exception)
+                {
+                    Debug.LogException(new InvalidOperationException(
+                        $"红点名:{resultChangedRedDotName}刷新失败",
+                        exception));
+                }
             }
-            TriggerRedDotNameUpdate(resultChangedRedDotName);
         }
-        mNeedRefreshRedDotNameSet.Clear();
+        finally
+        {
+            mNeedRefreshRedDotNameSet.Clear();
+        }
     }
 
     /// <summary>
@@ -522,15 +586,27 @@ public class RedDotManager : IRedDotService
         // 保存旧结果，计算结束后用于判断是否需要通知 UI。
         var preResult = RedDotModel.Singleton.GetRedDotUnitResult(redDotUnit);
         var redDotUnitFunc = RedDotModel.Singleton.GetRedDotUnitFunc(redDotUnit);
-        var result = 0;
+        var result = preResult;
         if(redDotUnitFunc != null)
         {
             // 规则函数只读取当前业务数据并返回一个整数，例如：
             // return MailModel.Singleton.NewPublicMailNum;
-            result = redDotUnitFunc();
+            try
+            {
+                result = redDotUnitFunc();
+            }
+            catch(Exception exception)
+            {
+                // 保留最后一次有效结果，避免异常直接把已有红点错误熄灭。
+                Debug.LogException(new InvalidOperationException(
+                    $"红点运算单元:{redDotUnit}计算失败，保留上次结果:{preResult}",
+                    exception));
+                return false;
+            }
         }
         else
         {
+            result = 0;
             //Debug.LogError($"红点运算单元:{redDotUnit.ToString()}未绑定有效计算方法!");
         }
         // 用新结果覆盖单元缓存，并返回是否发生变化。

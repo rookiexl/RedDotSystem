@@ -78,6 +78,7 @@
     <Compile Include="Assets\RedDot\Runtime\RedDotHandler.cs" />
     <Compile Include="Assets\RedDot\Runtime\FuncRDInitializer.cs" />
     <Compile Include="Assets\RedDot\Runtime\RedDotManager.cs" />
+    <Compile Include="Assets\RedDot\Runtime\RedDotValidationReport.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\RedDot\Runtime\RedDot.Runtime.asmdef" />
