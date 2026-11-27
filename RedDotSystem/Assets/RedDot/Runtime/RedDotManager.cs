@@ -45,29 +45,41 @@ public class RedDotManager : IRedDotService
     }
 
     /// <summary>
-    /// 单帧最大计算红点单元数量
+    /// 每次 CheckDirtyRedDotUnit() 最多处理的运算单元数量。
+    /// Note:
+    /// 名称沿用历史命名，实际不是每个 Unity 帧都会检查，
+    /// 而是 Update() 每累计 DIRTY_UPDATE_INTERVAL_FRAME 帧才处理一批。
     /// </summary>
     private const int CALCULATE_RED_DOT_UNIT_NUM_PER_FRAME = 30;
 
     /// <summary>
-    /// 标脏的红点运算单元集合<红点运算单元>
+    /// 待计算的运算单元集合<红点运算单元>。
+    /// Note:
+    /// 业务事件只负责把单元加入这里，不会立即执行计算。
     /// </summary>
     private HashSet<string> mDirtyRedDotUnitSet;
 
     /// <summary>
-    /// 强制刷新红点名集合<红点名>
+    /// 强制刷新红点名集合<红点名>。
+    /// Note:
+    /// 用于动态节点增删、UI 主动请求刷新等场景：
+    /// 即使运算单元结果没有变化，也必须通知该红点的订阅者。
     /// </summary>
     private HashSet<string> mForceRefreshRedDotNameSet;
 
     /// <summary>
-    /// 等待计算的红点运算单元集合
+    /// 当前批次等待计算的运算单元集合。
     /// Note:
-    /// 避免触发红点单元计算时标脏红点单元报错问题
+    /// 每批最多取 CALCULATE_RED_DOT_UNIT_NUM_PER_FRAME 个单元。
+    /// 先复制到临时集合并从原脏集合移除，再执行计算，
+    /// 避免计算期间重新标脏同一个单元时修改原集合。
     /// </summary>
     private HashSet<string> mWaitCalculateRedDotUnitSet;
 
     /// <summary>
-    /// 需要刷新的红点名数据集合<红点名>
+    /// 当前批次需要通知的红点名集合<红点名>。
+    /// Note:
+    /// 多个变化单元可能影响同一个红点名，使用 HashSet 负责去重。
     /// </summary>
     private HashSet<string> mNeedRefreshRedDotNameSet;
 
@@ -77,14 +89,18 @@ public class RedDotManager : IRedDotService
     private Dictionary<string, Action<RedDotSnapshot>> mRedDotNameSubscriberMap;
 
     /// <summary>
-    /// 已经计算过的红点运算单元和结果是否变化Map<红点运算单元，结果是否变化>
+    /// 当前批次的运算单元结果变化标记Map<红点运算单元，结果是否变化>。
     /// Note:
-    /// 优化单个红点运算单元重复计算的问题
+    /// 这里缓存的是“是否变化”，不是红点数值本身。
+    /// 每次 CheckDirtyRedDotUnit() 开始时都会清空。
     /// </summary>
     private Dictionary<string, bool> mCaculatedRedDotUnitResultChangeMap;
 
     /// <summary>
-    /// 标脏检测更新帧率
+    /// 标脏检测的调度间隔。
+    /// Note:
+    /// 每累计 10 帧才执行一次 CheckDirtyRedDotUnit()。
+    /// 因此一个批次最多处理 30 个单元，而不是每个 Unity 帧处理 30 个。
     /// </summary>
     private const int DIRTY_UPDATE_INTERVAL_FRAME = 10;
 
@@ -141,7 +157,10 @@ public class RedDotManager : IRedDotService
     }
 
     /// <summary>
-    /// 触发红点名刷新回调
+    /// 立即汇总指定红点的当前缓存结果，并通知其订阅者。
+    /// Note:
+    /// 此函数不会重新计算运算单元，只负责生成快照和推送。
+    /// 它由 CheckDirtyRedDotUnit() 在单元结果变化或强制刷新时调用。
     /// </summary>
     /// <param name="redDotName"></param>
     public bool TriggerRedDotNameUpdate(string redDotName)
@@ -151,12 +170,18 @@ public class RedDotManager : IRedDotService
             Debug.LogError($"触发红点名:{redDotName}刷新回调失败!");
             return false;
         }
+        // 快照 = 汇总该节点所有运算单元的已有缓存结果。
+        // 不在这一步重新调用各单元的计算函数。
         NotifyRedDotNameSubscribers(GetSnapshot(redDotName));
         return true;
     }
 
     /// <summary>
-    /// 获取指定红点名的结果数据
+    /// 汇总指定红点名下所有运算单元的当前缓存结果。
+    /// Note:
+    /// 父节点在绑定运算单元时已经递归接收了子节点的单元，
+    /// 所以这里直接求和即可，父节点不需要单独维护一套计算公式。
+    /// 只有结果大于 0 的单元才参与显示类型的组合。
     /// </summary>
     /// <param name="redDotName"></param>
     /// <returns></returns>
@@ -289,13 +314,17 @@ public class RedDotManager : IRedDotService
     }
 
     /// <summary>
-    /// 更新
+    /// 红点系统每帧更新入口。
+    /// Note:
+    /// 不是每帧都检查脏数据，而是累计到固定帧数后处理一个批次，
+    /// 避免业务数据频繁变化时每帧重复扫描和计算。
     /// </summary>
     public void Update()
     {
         mFramePassed++;
         if(mFramePassed >= DIRTY_UPDATE_INTERVAL_FRAME)
         {
+            // 每次只处理一批脏单元，剩余单元继续留在脏集合中等待下一轮。
             CheckDirtyRedDotUnit();
             mFramePassed = 0;
         }
@@ -314,6 +343,8 @@ public class RedDotManager : IRedDotService
 
         const int maxIterations = 10000;
         var iteration = 0;
+        // CheckDirtyRedDotUnit() 每轮只处理有限数量的单元，
+        // 因此启动阶段循环调用，直到所有初始脏数据和强制刷新都处理完。
         while((mDirtyRedDotUnitSet.Count > 0 || mForceRefreshRedDotNameSet.Count > 0) &&
               iteration < maxIterations)
         {
@@ -336,6 +367,7 @@ public class RedDotManager : IRedDotService
         var redDotUnitList = RedDotModel.Singleton.GetRedDotUnitsByName(redDotName);
         if (redDotUnitList != null)
         {
+            // 红点节点本身不保存可执行公式，标脏最终会落到它绑定的所有运算单元。
             foreach (var redDotUnit in redDotUnitList)
             {
                 MarkRedDotUnitDirty(redDotUnit);
@@ -349,6 +381,7 @@ public class RedDotManager : IRedDotService
     /// <param name="redDotUnit"></param>
     public void MarkRedDotUnitDirty(string redDotUnit)
     {
+        // 只入队，不在这里执行计算；真正计算由 CheckDirtyRedDotUnit() 统一调度。
         mDirtyRedDotUnitSet.Add(redDotUnit);
     }
 
@@ -358,11 +391,24 @@ public class RedDotManager : IRedDotService
     /// <param name="redDotName"></param>
     public void ForceRefreshRedDotName(string redDotName)
     {
+        // 绕过“结果是否变化”的判断，下一轮检查时无条件通知该红点名。
         mForceRefreshRedDotNameSet.Add(redDotName);
     }
 
     /// <summary>
-    /// 检查标脏红点运算单元
+    /// 处理一批标脏的红点运算单元，并把变化通知给相关红点名。
+    ///
+    /// 完整流程：
+    /// 1. 从待处理集合中取最多 30 个单元，作为当前批次；
+    /// 2. 先把这些单元从待处理集合移除，防止计算期间修改原集合；
+    /// 3. 重新执行单元的规则函数，并比较新旧结果；
+    /// 4. 只有结果变化时，才反查该单元影响的所有红点名；
+    /// 5. 合并必须强制刷新的红点名；
+    /// 6. 对需要刷新的红点名重新生成快照，并通知订阅者。
+    ///
+    /// Note:
+    /// 本函数计算的是“运算单元”，不是直接计算整棵红点树。
+    /// 红点名的结果由 GetRedDotNameResult() 根据单元缓存结果汇总。
     /// </summary>
     private void CheckDirtyRedDotUnit()
     {
@@ -378,6 +424,9 @@ public class RedDotManager : IRedDotService
         // 只计算标脏的红点单元，其他单元不重复计算
         // 通过从缓存结果直接获取结果避免过多的不必要红点单元运算
         // 红点单元的结果变化才通知相关红点名刷新
+        //
+        // 这里先收集本批次，而不是直接遍历 mDirtyRedDotUnitSet 并计算，
+        // 是为了在计算过程中安全地处理“再次标脏”的情况。
         var dirtyRedDotUnitNum = 0;
         mWaitCalculateRedDotUnitSet.Clear();
         foreach(var dirtyRedDotUnit in mDirtyRedDotUnitSet)
@@ -390,22 +439,30 @@ public class RedDotManager : IRedDotService
             dirtyRedDotUnitNum++;
         }
 
+        // 先移出原始待处理队列，再执行计算。
+        // 如果某个规则函数在计算过程中再次标脏同一个单元，
+        // 该单元可以重新进入 mDirtyRedDotUnitSet，等待下一批次处理。
         foreach(var redDotUnit in mWaitCalculateRedDotUnitSet)
         {
             mDirtyRedDotUnitSet.Remove(redDotUnit);
         }
 
+        // 这两个集合只描述当前批次，先清空以避免混入上一批次的数据。
         mCaculatedRedDotUnitResultChangeMap.Clear();
         mNeedRefreshRedDotNameSet.Clear();
         foreach(var redDotUnit in mWaitCalculateRedDotUnitSet)
         {
             // 逻辑层可能出现还未初始化但在标脏的红点单元的情况
             // 这种情况不需要触发红点单元运算，直接跳过
+            // 动态红点被移除后，也可能残留旧的脏记录，同样在这里跳过。
             if(!RedDotModel.Singleton.ExistsRedDotUnitInfo(redDotUnit))
             {
                 continue;
             }
             bool resultChange = false;
+            // 当前批次内记录单元的计算结果是否变化，避免同一批次重复计算。
+            // mWaitCalculateRedDotUnitSet 本身是 HashSet，通常不会重复；
+            // 这层 Map 主要用于明确表达“本批次已经算过”的语义。
             if(!mCaculatedRedDotUnitResultChangeMap.TryGetValue(redDotUnit, out resultChange))
             {
                 resultChange = DoRedDotUnitCaculate(redDotUnit);
@@ -413,8 +470,12 @@ public class RedDotManager : IRedDotService
             }
             if(!resultChange)
             {
+                // 例如旧值是 2，重新计算后仍然是 2。
+                // 单元缓存已更新，但没有必要通知 UI，避免无意义刷新。
                 continue;
             }
+            // 反向依赖：一个运算单元会影响哪些红点名。
+            // 由于子节点单元会递归挂到父节点，这里通常包含当前节点及所有父节点。
             var redDotNameList = RedDotModel.Singleton.GetRedDotNamesByUnit(redDotUnit);
             if(redDotNameList == null || redDotNameList.Count == 0)
             {
@@ -422,10 +483,13 @@ public class RedDotManager : IRedDotService
             }
             foreach(var redDotName in redDotNameList)
             {
+                // 多个变化单元可能影响同一个红点名，用 HashSet 去重。
                 mNeedRefreshRedDotNameSet.Add(redDotName);
             }
         }
 
+        // 动态节点创建/删除等场景可能没有单元结果变化，
+        // 但仍需要让 UI 收到最新快照，因此把强制刷新节点合并进来。
         foreach(var redDotName in mForceRefreshRedDotNameSet)
         {
             mNeedRefreshRedDotNameSet.Add(redDotName);
@@ -446,23 +510,30 @@ public class RedDotManager : IRedDotService
     }
 
     /// <summary>
-    /// 执行指定红点运算单元计算
+    /// 重新计算一个红点运算单元，并更新其缓存结果。
+    /// Note:
+    /// 本函数只返回“新旧结果是否变化”，不负责通知红点名。
+    /// 通知流程由调用方 CheckDirtyRedDotUnit() 统一处理。
     /// </summary>
     /// <param name="redDotUnit"></param>
     /// <returns></returns>
     private bool DoRedDotUnitCaculate(string redDotUnit)
     {
+        // 保存旧结果，计算结束后用于判断是否需要通知 UI。
         var preResult = RedDotModel.Singleton.GetRedDotUnitResult(redDotUnit);
         var redDotUnitFunc = RedDotModel.Singleton.GetRedDotUnitFunc(redDotUnit);
         var result = 0;
         if(redDotUnitFunc != null)
         {
+            // 规则函数只读取当前业务数据并返回一个整数，例如：
+            // return MailModel.Singleton.NewPublicMailNum;
             result = redDotUnitFunc();
         }
         else
         {
             //Debug.LogError($"红点运算单元:{redDotUnit.ToString()}未绑定有效计算方法!");
         }
+        // 用新结果覆盖单元缓存，并返回是否发生变化。
         RedDotModel.Singleton.SetRedDotUnitResult(redDotUnit, result);
         return preResult != result;
     }
