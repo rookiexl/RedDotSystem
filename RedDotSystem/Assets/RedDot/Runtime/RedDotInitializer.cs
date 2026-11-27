@@ -160,6 +160,14 @@ public class RedDotInitializer : IRedDotRegistrar
     }
 
     /// <summary>
+    /// 创建一个可提交、可释放的动态红点注册作用域。
+    /// </summary>
+    public RedDotScope CreateScope(string owner)
+    {
+        return new RedDotScope(owner);
+    }
+
+    /// <summary>
     /// 结束注册并标记红点定义图已就绪。
     /// </summary>
     public void CompleteRegistration()

@@ -206,6 +206,143 @@ namespace Game.RedDot.Tests
         }
 
         [Test]
+        public void ScopeCommitsAndDisposesDynamicRegistration()
+        {
+            const string parentRedDotName = "TEST_SCOPE_PARENT";
+            const string childRedDotName = parentRedDotName + "|CHILD";
+            const string redDotUnitPrefix = "TEST_SCOPE_DYNAMIC_UNIT";
+            const int dynamicValue = 7;
+            var redDotUnit = RedDotUtilities.GetDynamicRedDotUnit(
+                redDotUnitPrefix,
+                dynamicValue);
+
+            var scope = RedDotInitializer.Singleton.CreateScope("Scope test");
+            Assert.AreEqual("Scope test", scope.Owner);
+            Assert.IsTrue(scope.AddRedDotInfo(
+                parentRedDotName,
+                "Scope parent"));
+            Assert.IsTrue(scope.AddDynamicRedDotInfo<TestScopeDynamicHandler, int>(
+                childRedDotName,
+                "Scope child",
+                dynamicValue));
+
+            Assert.IsFalse(RedDotModel.Singleton.IsRedDotNameExist(parentRedDotName));
+            Assert.IsFalse(RedDotModel.Singleton.IsRedDotNameExist(childRedDotName));
+            Assert.IsFalse(RedDotModel.Singleton.IsRedDotUnitExist(redDotUnit));
+
+            Assert.IsTrue(scope.Commit());
+            Assert.IsTrue(scope.IsCommitted);
+            Assert.IsTrue(RedDotModel.Singleton.IsRedDotNameExist(parentRedDotName));
+            Assert.IsTrue(RedDotModel.Singleton.IsRedDotNameExist(childRedDotName));
+            Assert.IsTrue(RedDotModel.Singleton.IsRedDotUnitExist(redDotUnit));
+
+            RedDotManager.Singleton.EvaluateAllDirtyNow();
+            Assert.AreEqual(
+                dynamicValue,
+                RedDotManager.Singleton.GetRedDotResult(parentRedDotName));
+            Assert.AreEqual(
+                dynamicValue,
+                RedDotModel.Singleton.GetRedDotUnitResult(redDotUnit));
+
+            scope.Dispose();
+            scope.Dispose();
+
+            Assert.IsTrue(scope.IsDisposed);
+            Assert.IsFalse(RedDotModel.Singleton.IsRedDotNameExist(parentRedDotName));
+            Assert.IsFalse(RedDotModel.Singleton.IsRedDotNameExist(childRedDotName));
+            Assert.IsFalse(RedDotModel.Singleton.IsRedDotUnitExist(redDotUnit));
+            Assert.AreEqual(
+                0,
+                RedDotModel.Singleton.GetRedDotUnitResult(redDotUnit));
+        }
+
+        [Test]
+        public void ScopeDisposedBeforeCommitDoesNotModifyModel()
+        {
+            const string parentRedDotName = "TEST_UNCOMMITTED_SCOPE_PARENT";
+            const string childRedDotName = parentRedDotName + "|CHILD";
+            const string redDotUnitPrefix = "TEST_SCOPE_DYNAMIC_UNIT";
+            const int dynamicValue = 3;
+
+            var scope = RedDotInitializer.Singleton.CreateScope(
+                "Uncommitted scope test");
+            Assert.IsTrue(scope.AddRedDotInfo(
+                parentRedDotName,
+                "Uncommitted scope parent"));
+            Assert.IsTrue(scope.AddDynamicRedDotInfo<TestScopeDynamicHandler, int>(
+                childRedDotName,
+                "Uncommitted scope child",
+                dynamicValue));
+
+            scope.Dispose();
+
+            Assert.IsFalse(RedDotModel.Singleton.IsRedDotNameExist(parentRedDotName));
+            Assert.IsFalse(RedDotModel.Singleton.IsRedDotNameExist(childRedDotName));
+            Assert.IsFalse(RedDotModel.Singleton.IsRedDotUnitExist(
+                RedDotUtilities.GetDynamicRedDotUnit(
+                    redDotUnitPrefix,
+                    dynamicValue)));
+        }
+
+        [Test]
+        public void ScopeCommitFailureRollsBackPriorRegistrations()
+        {
+            const string existingRedDotName = "TEST_SCOPE_CONFLICT";
+            const string newRedDotName = "TEST_SCOPE_ROLLBACK_PARENT";
+            Assert.IsTrue(RedDotModel.Singleton.AddRedDotInfo(
+                existingRedDotName,
+                "Existing conflict node").Item1);
+
+            var scope = RedDotInitializer.Singleton.CreateScope(
+                "Scope rollback test");
+            Assert.IsTrue(scope.AddRedDotInfo(
+                newRedDotName,
+                "Node that should be rolled back"));
+            Assert.IsTrue(scope.AddRedDotInfo(
+                existingRedDotName,
+                "Conflicting node"));
+
+            var previousIgnoreValue = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;
+            try
+            {
+                Assert.IsFalse(scope.Commit());
+            }
+            finally
+            {
+                LogAssert.ignoreFailingMessages = previousIgnoreValue;
+            }
+
+            Assert.IsFalse(scope.IsCommitted);
+            Assert.IsFalse(RedDotModel.Singleton.IsRedDotNameExist(newRedDotName));
+            Assert.IsTrue(RedDotModel.Singleton.IsRedDotNameExist(existingRedDotName));
+            scope.Dispose();
+        }
+
+        [Test]
+        public void ScopeCommitExceptionRollsBackPartiallyCreatedNode()
+        {
+            const string parentRedDotName = "TEST_SCOPE_EXCEPTION_PARENT";
+            const string childRedDotName = parentRedDotName + "|CHILD";
+            var scope = RedDotInitializer.Singleton.CreateScope(
+                "Scope exception rollback test");
+            Assert.IsTrue(scope.AddRedDotInfo(
+                parentRedDotName,
+                "Node before exception"));
+            Assert.IsTrue(scope.AddDynamicRedDotInfo<TestThrowingScopeHandler, int>(
+                childRedDotName,
+                "Node that throws during handler initialization",
+                1));
+
+            Assert.Throws<InvalidOperationException>(() => scope.Commit());
+
+            Assert.IsFalse(scope.IsCommitted);
+            Assert.IsFalse(RedDotModel.Singleton.IsRedDotNameExist(parentRedDotName));
+            Assert.IsFalse(RedDotModel.Singleton.IsRedDotNameExist(childRedDotName));
+            scope.Dispose();
+        }
+
+        [Test]
         public void SharedUnitRemainsOnParentUntilLastChildUnbinds()
         {
             const string parentRedDotName = "TEST_SHARED_PARENT";
@@ -543,6 +680,29 @@ namespace Game.RedDot.Tests
         private sealed class AssemblyDefinitionData
         {
             public string[] references;
+        }
+    }
+
+    public sealed class TestScopeDynamicHandler : DynamicRedDotHandler<int>
+    {
+        protected override void InitRedDotDatas()
+        {
+            var redDotUnit = RedDotUtilities.GetDynamicRedDotUnit(
+                "TEST_SCOPE_DYNAMIC_UNIT",
+                Data);
+            AddBindRedDotUnit(
+                redDotUnit,
+                $"Scope dynamic unit:{Data}",
+                () => Data,
+                RedDotType.NUMBER);
+        }
+    }
+
+    public sealed class TestThrowingScopeHandler : DynamicRedDotHandler<int>
+    {
+        protected override void InitRedDotDatas()
+        {
+            throw new InvalidOperationException("Intentional scope handler failure");
         }
     }
 }

@@ -6,5 +6,6 @@ namespace Game.RedDot
     public interface IRedDotRegistrar
     {
         bool Register(FuncRDInitializer initializer);
+        RedDotScope CreateScope(string owner);
     }
 }

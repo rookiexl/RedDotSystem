@@ -570,6 +570,7 @@ public class RedDotModel
         }
         redDotUnitInfo.Clear();
         mRedDotUnitInfoMap.Remove(redDotUnit);
+        mRedDotUnitResultMap.Remove(redDotUnit);
         return true;
     }
 

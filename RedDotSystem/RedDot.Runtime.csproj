@@ -61,6 +61,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\RedDot\Runtime\RedDotUnitInfo.cs" />
+    <Compile Include="Assets\RedDot\Runtime\RedDotScope.cs" />
     <Compile Include="Assets\RedDot\Runtime\RedDotService.cs" />
     <Compile Include="Assets\RedDot\Runtime\RedDotType.cs" />
     <Compile Include="Assets\RedDot\Runtime\IRedDotService.cs" />
