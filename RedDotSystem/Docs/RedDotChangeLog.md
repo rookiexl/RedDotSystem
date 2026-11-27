@@ -9,6 +9,8 @@
 - 运算单元计算和 UI 订阅回调增加异常隔离；计算异常保留最后一次有效值，不再阻断同批其他刷新。
 - 自动配置校验默认只在 Editor 和 Development Build 执行，Release Player 可通过 `EnableAutomaticValidation` 手动开启。
 - 订阅者改为数组存储，普通通知不再分配 `GetInvocationList`；校验空叶子检查和派生索引重建减少重复分配。
+- 新增 `RedDotScope`：动态红点先暂存注册项，`Commit()` 时统一写入并只重建一次，`Dispose()` 时批量移除并清理 unit 结果缓存。
+- 活动动态红点迁移到 Scope 生命周期，失败注册和处理器异常会回滚本次未完成节点。
 
 ## 2026-11-26
 
