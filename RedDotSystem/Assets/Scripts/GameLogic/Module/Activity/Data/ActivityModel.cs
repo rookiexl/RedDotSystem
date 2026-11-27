@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             ActivityModel.cs
  * Author:                  TONYTANG
  * Create Date:             2026/04/03

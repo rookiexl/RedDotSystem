@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             EquipUIUpgradableRDH.cs
  * Author:                  TONYTANG
  * Create Date:             2026/04/06
@@ -8,7 +11,7 @@
 /// EquipUIUpgradableRDH.cs
 /// 装备界面可升级红点处理器
 /// </summary>
-public class EquipUIUpgradableRDH : RedDotHandler
+public class EquipUIUpgradableRDH : GameRedDotHandler
 {
 /// <summary>
     /// 初始化红点数据

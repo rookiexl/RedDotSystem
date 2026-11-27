@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             LevelUI.cs
  * Author:                  TONYTANG
  * Create Date:             2026/04/02
@@ -95,6 +98,7 @@ public class LevelUI : BaseUI
     protected override void OnOpen()
     {
         base.OnOpen();
+        ConfigureRedDotViews();
         RefreshView();
     }
 
@@ -104,6 +108,8 @@ public class LevelUI : BaseUI
     protected override void OnClose()
     {
         base.OnClose();
+        LevelUpgradeRedDotWidget.ClearRedDotName();
+        LevelRewardRedDotWidget.ClearRedDotName();
         mLevelId = 0;
         mLevelUpgradeRedDotName = null;
         mLevelRewardRedDotName = null;
@@ -132,24 +138,10 @@ public class LevelUI : BaseUI
         BtnMinusLevelReward.onClick.RemoveListener(OnBtnMinusLevelRewardClick);
     }
 
-    /// <summary>
-    /// 绑定所有红点
-    /// </summary>
-    protected override void BindAllRedDotNames()
+    private void ConfigureRedDotViews()
     {
-        base.BindAllRedDotNames();
-        LevelUpgradeRedDotWidget.Init(mLevelUpgradeRedDotName);
-        LevelRewardRedDotWidget.Init(mLevelRewardRedDotName);
-    }
-
-    /// <summary>
-    /// 解绑所有红点
-    /// </summary>
-    protected override void UnbindAllRedDotNames()
-    {
-        base.UnbindAllRedDotNames();
-        LevelUpgradeRedDotWidget.UnbindRedDotName();
-        LevelRewardRedDotWidget.UnbindRedDotName();
+        LevelUpgradeRedDotWidget.SetRedDotName(mLevelUpgradeRedDotName);
+        LevelRewardRedDotWidget.SetRedDotName(mLevelRewardRedDotName);
     }
 
     /// <summary>

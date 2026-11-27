@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             EquipUIWearableRDH.cs
  * Author:                  TONYTANG
  * Create Date:             2026/04/06
@@ -8,7 +11,7 @@
 /// EquipUIWearableRDH.cs
 /// 装备界面可穿戴红点处理器
 /// </summary>
-public class EquipUIWearableRDH : RedDotHandler
+public class EquipUIWearableRDH : GameRedDotHandler
 {
     /// <summary>
     /// 初始化红点数据

@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             BackpackUIResourceTagRDH.cs
  * Author:                  TONYTANG
  * Create Date:             2026/04/06
@@ -8,7 +11,7 @@
 /// BackpackUIResourceTagRDH.cs
 /// 背包界面资源页签红点处理器
 /// </summary>
-public class BackpackUIResourceTagRDH : RedDotHandler
+public class BackpackUIResourceTagRDH : GameRedDotHandler
 {
     /// <summary>
     /// 初始化红点数据

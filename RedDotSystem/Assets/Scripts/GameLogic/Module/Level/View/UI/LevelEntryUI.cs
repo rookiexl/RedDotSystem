@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             LevelEntryUI.cs
  * Author:                  TONYTANG
  * Create Date:             2026/04/02
@@ -70,6 +73,7 @@ public class LevelEntryUI : BaseUI
     {
         base.RemoveAllListeners();
         BtnClose.onClick.RemoveListener(OnBtnCloseClick);
+        PVEBtnWidget.SetClickCallback(null);
     }
 
     /// <summary>
@@ -77,7 +81,8 @@ public class LevelEntryUI : BaseUI
     /// </summary>
     private void InitView()
     {
-        PVEBtnWidget.Init("PVE战斗", OnPVEBtnClick, RedDotNames.LEVEL_PVE_ENTRY);
+        PVEBtnWidget.Init("PVE战斗", OnPVEBtnClick);
+        PVEBtnWidget.SetRedDotName(RedDotNames.LEVEL_PVE_ENTRY);
     }
 
     /// <summary>

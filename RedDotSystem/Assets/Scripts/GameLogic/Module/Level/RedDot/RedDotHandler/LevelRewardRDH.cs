@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             LevelRewardRDH.cs
  * Author:                  TONYTANG
  * Create Date:             2026/04/06
@@ -8,7 +11,7 @@
 /// LevelRewardRDH.cs
 /// 关卡可领奖红点处理器
 /// </summary>
-public class LevelRewardRDH : DynamicRedDotHandler<int>
+public class LevelRewardRDH : GameDynamicRedDotHandler<int>
 {
     /// <summary>
     /// 初始化红点数据

@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             EquipUI.cs
  * Author:                  TONYTANG
  * Create Date:             2022/08/14
@@ -61,6 +64,7 @@ public class EquipUI : BaseUI
     protected override void OnOpen()
     {
         base.OnOpen();
+        ConfigureRedDotViews();
         RefreshView();
     }
 
@@ -90,24 +94,10 @@ public class EquipUI : BaseUI
         BtnMinusUpgradableEquip.onClick.RemoveListener(OnBtnMinusUpgradableEquipClick);
     }
 
-    /// <summary>
-    /// 绑定所有红点名
-    /// </summary>
-    protected override void BindAllRedDotNames()
+    private void ConfigureRedDotViews()
     {
-        base.BindAllRedDotNames();
-        WearableEquipRedDot.Init(RedDotNames.EQUIP_UI_WEARABLE);
-        UpgradableEquipRedDot.Init(RedDotNames.EQUIP_UI_UPGRADABLE);
-    }
-
-    /// <summary>
-    /// 解绑所有红点名
-    /// </summary>
-    protected override void UnbindAllRedDotNames()
-    {
-        base.UnbindAllRedDotNames();
-        WearableEquipRedDot.UnbindRedDotName();
-        UpgradableEquipRedDot.UnbindRedDotName();
+        WearableEquipRedDot.SetRedDotName(RedDotNames.EQUIP_UI_WEARABLE);
+        UpgradableEquipRedDot.SetRedDotName(RedDotNames.EQUIP_UI_UPGRADABLE);
     }
 
     /// <summary>

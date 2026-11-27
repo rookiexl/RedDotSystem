@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             MailUI.cs
  * Author:                  TONYTANG
  * Create Date:             2022/08/14
@@ -103,6 +106,7 @@ public class MailUI : BaseUI
     {
         base.OnOpen();
         InitView();
+        ConfigureRedDotViews();
         RefreshView();
     }
 
@@ -153,32 +157,17 @@ public class MailUI : BaseUI
     }
 
     /// <summary>
-    /// 绑定所有红点名
-    /// </summary>
-    protected override void BindAllRedDotNames()
-    {
-        base.BindAllRedDotNames();
-        PublicMailRedDot.Init(RedDotNames.MAIL_UI_PUBLIC_MAIL);
-        BattleMailRedDot.Init(RedDotNames.MAIL_UI_BATTLE_MAIL);
-        OtherMailRedDot.Init(RedDotNames.MAIL_UI_OTHER_MAIL);
-    }
-
-    /// <summary>
-    /// 解绑所有红点名
-    /// </summary>
-    protected override void UnbindAllRedDotNames()
-    {
-        base.UnbindAllRedDotNames();
-        PublicMailRedDot.UnbindRedDotName();
-        BattleMailRedDot.UnbindRedDotName();
-        OtherMailRedDot.UnbindRedDotName();
-    }
-
-    /// <summary>
     /// 初始化显示
     /// </summary>
     private void InitView()
     {
+    }
+
+    private void ConfigureRedDotViews()
+    {
+        PublicMailRedDot.SetRedDotName(RedDotNames.MAIL_UI_PUBLIC_MAIL);
+        BattleMailRedDot.SetRedDotName(RedDotNames.MAIL_UI_BATTLE_MAIL);
+        OtherMailRedDot.SetRedDotName(RedDotNames.MAIL_UI_OTHER_MAIL);
     }
 
     /// <summary>

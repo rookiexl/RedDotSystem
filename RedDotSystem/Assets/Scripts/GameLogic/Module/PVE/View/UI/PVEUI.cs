@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             PVEUI.cs
  * Author:                  TONYTANG
  * Create Date:             2026/04/02
@@ -49,6 +52,7 @@ public class PVEUI : BaseUI
     protected override void OnOpen()
     {
         base.OnOpen();
+        ConfigureRedDotViews();
         RefreshView();
     }
 
@@ -82,22 +86,9 @@ public class PVEUI : BaseUI
         BtnMinusPVERewardNum.onClick.RemoveListener(OnBtnMinusPVERewardNumClick);
     }
 
-    /// <summary>
-    /// 解绑所有红点
-    /// </summary>
-    protected override void UnbindAllRedDotNames()
+    private void ConfigureRedDotViews()
     {
-        base.UnbindAllRedDotNames();
-        PVERewardRedDotWidget.UnbindRedDotName();
-    }
-
-    /// <summary>
-    /// 绑定所有红点
-    /// </summary>
-    protected override void BindAllRedDotNames()
-    {
-        base.BindAllRedDotNames();
-        PVERewardRedDotWidget.Init(RedDotNames.PVE_REWARD_ENTRY);
+        PVERewardRedDotWidget.SetRedDotName(RedDotNames.PVE_REWARD_ENTRY);
     }
 
     /// <summary>

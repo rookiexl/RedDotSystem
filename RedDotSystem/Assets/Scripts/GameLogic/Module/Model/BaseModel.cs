@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             BaseModel.cs
  * Author:                  TONYTANG
  * Create Date:             2026/06/15

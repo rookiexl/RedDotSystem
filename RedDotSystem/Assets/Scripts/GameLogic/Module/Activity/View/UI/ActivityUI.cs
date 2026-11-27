@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             ActivityUI.cs
  * Author:                  TONYTANG
  * Create Date:             2026/04/02
@@ -83,6 +86,7 @@ public class ActivityUI : BaseUI
     protected override void OnOpen()
     {
         base.OnOpen();
+        ConfigureRedDotViews();
         RefreshView();
     }
 
@@ -92,6 +96,8 @@ public class ActivityUI : BaseUI
     protected override void OnClose()
     {
         base.OnClose();
+        ActivityRed1NumWidget.ClearRedDotName();
+        ActivityRed2NumWidget.ClearRedDotName();
     }
 
     /// <summary>
@@ -120,26 +126,12 @@ public class ActivityUI : BaseUI
         MinusActivityRed2NumBtn.onClick.RemoveListener(OnMinusActivityRed2NumBtnClick);
     }
 
-    /// <summary>
-    /// 绑定所有红点名
-    /// </summary>
-    protected override void BindAllRedDotNames()
+    private void ConfigureRedDotViews()
     {
-        base.BindAllRedDotNames();
         var actRedDot1EntryName = ActivityAgent.GetActRedDot1EntryName(mActivityData.ActivityConfId);
-        ActivityRed1NumWidget.Init(actRedDot1EntryName);
+        ActivityRed1NumWidget.SetRedDotName(actRedDot1EntryName);
         var actRedDot2EntryName = ActivityAgent.GetActRedDot2EntryName(mActivityData.ActivityConfId);
-        ActivityRed2NumWidget.Init(actRedDot2EntryName);
-    }
-
-    /// <summary>
-    /// 解绑所有红点名
-    /// </summary>
-    protected override void UnbindAllRedDotNames()
-    {
-        base.UnbindAllRedDotNames();
-        ActivityRed1NumWidget.UnbindRedDotName();
-        ActivityRed2NumWidget.UnbindRedDotName();
+        ActivityRed2NumWidget.SetRedDotName(actRedDot2EntryName);
     }
 
     /// <summary>

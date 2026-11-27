@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             BackpackUIEquipTagRDH.cs
  * Author:                  TONYTANG
  * Create Date:             2026/04/06
@@ -8,7 +11,7 @@
 /// BackpackUIEquipTagRDH.cs
 /// 背包界面装备页签红点处理器
 /// </summary>
-public class BackpackUIEquipTagRDH : RedDotHandler
+public class BackpackUIEquipTagRDH : GameRedDotHandler
 {
     /// <summary>
     /// 初始化红点数据

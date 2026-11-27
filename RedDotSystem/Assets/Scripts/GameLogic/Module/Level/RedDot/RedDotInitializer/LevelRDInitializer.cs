@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             LevelRDInitializer.cs
  * Author:                  TONYTANG
  * Create Date:             2026/04/06
@@ -22,22 +25,10 @@ public class LevelRDInitializer : SystemRDInitializer
     }
 
     /// <summary>
-    /// 初始化嵌套的功能红点初始化器
-    /// </summary>
-    protected override void InitNestedInitializers()
-    {
-        base.InitNestedInitializers();
-        // 测试嵌套初始化器功能
-        CreateNestedInitializer<PVERDInitializer>();
-    }
-
-    /// <summary>
     /// 初始化红点数据
     /// </summary>
     protected override void InitRedDotInfos()
     {
-        AddRedDotInfo(RedDotNames.LEVEL_PVE_ENTRY, "关卡PVE入口红点");
-
         // 同类型，动态N个的红点事例1
         for(int levelId = 1; levelId <= LevelModel.MaxLevelId; levelId++)
         {

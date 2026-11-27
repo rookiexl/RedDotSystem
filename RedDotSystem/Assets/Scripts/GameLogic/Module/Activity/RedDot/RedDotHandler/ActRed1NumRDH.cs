@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             ActRed1NumRDH.cs
  * Author:                  TONYTANG
  * Create Date:             2026/07/09
@@ -8,7 +11,7 @@
 /// ActRed1NumRDH.cs
 /// 活动红点1数量红点处理器
 /// </summary>
-public class ActRed1NumRDH : DynamicRedDotHandler<int>
+public class ActRed1NumRDH : GameDynamicRedDotHandler<int>
 {
     /// <summary>
     /// 初始化红点信息

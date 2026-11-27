@@ -1,3 +1,6 @@
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
 /*
  * Description:             EquipModel.cs
  * Author:                  TONYTANG

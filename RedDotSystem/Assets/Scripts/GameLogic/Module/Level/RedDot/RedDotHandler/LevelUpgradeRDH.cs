@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             LevelUpgradeRDH.cs
  * Author:                  TONYTANG
  * Create Date:             2026/04/06
@@ -8,7 +11,7 @@
 /// LevelUpgradeRDH.cs
 /// 关卡可升级红点处理器
 /// </summary>
-public class LevelUpgradeRDH : DynamicRedDotHandler<int>
+public class LevelUpgradeRDH : GameDynamicRedDotHandler<int>
 {
     /// <summary>
     /// 初始化红点数据

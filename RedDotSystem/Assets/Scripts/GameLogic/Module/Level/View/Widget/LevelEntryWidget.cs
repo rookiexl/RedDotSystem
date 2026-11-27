@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             LevelEntryWidget.cs
  * Author:                  TONYTANG
  * Create Date:             2026/04/02
@@ -64,25 +67,8 @@ public class LevelEntryWidget : MonoBehaviour
     {
         mLevelId = levelId;
         mLevelEntryRedDotName = RedDotUtilities.GetTemplateRDName(RedDotNames.LEVEL_ENTRY, levelId);
-        UnbindAllRedDotNames();
-        BindAllRedDotNames();
+        LevelRedDotWidget.SetRedDotName(mLevelEntryRedDotName);
         RefreshView();
-    }
-
-    /// <summary>
-    /// 取消所有红点绑定
-    /// </summary>
-    private void UnbindAllRedDotNames()
-    {
-        LevelRedDotWidget.UnbindRedDotName();
-    }
-
-    /// <summary>
-    /// 添加所有红点绑定
-    /// </summary>
-    private void BindAllRedDotNames()
-    {
-        LevelRedDotWidget.Init(mLevelEntryRedDotName);
     }
 
     /// <summary>

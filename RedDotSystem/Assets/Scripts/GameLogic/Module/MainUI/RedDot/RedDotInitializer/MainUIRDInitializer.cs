@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             MainUIRDInitializer.cs
  * Author:                  TONYTANG
  * Create Date:             2026/04/05
@@ -10,18 +13,6 @@
 /// </summary>
 public class MainUIRDInitializer : FuncRDInitializer
 {
-    /// <summary>
-    /// 初始化嵌套的功能红点初始化器
-    /// </summary>
-    protected override void InitNestedInitializers()
-    {
-        base.InitNestedInitializers();
-        CreateNestedInitializer<BackpackRDInitializer>();
-        CreateNestedInitializer<MailRDInitializer>();
-        CreateNestedInitializer<EquipRDInitializer>();
-        CreateNestedInitializer<LevelRDInitializer>();
-    }
-
     /// <summary>
     /// 初始化红点数据
     /// </summary>

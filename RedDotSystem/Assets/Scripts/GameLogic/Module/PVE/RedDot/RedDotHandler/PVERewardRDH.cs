@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             PVERewardRDH.cs
  * Author:                  TONYTANG
  * Create Date:             2026/07/09
@@ -8,7 +11,7 @@
 /// PVERewardRDH.cs
 /// PVE奖励入口红点处理器
 /// </summary>
-public class PVERewardRDH : RedDotHandler
+public class PVERewardRDH : GameRedDotHandler
 {
     /// <summary>
     /// 初始化红点数据

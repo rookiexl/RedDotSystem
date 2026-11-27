@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             PVERDInitializer.cs
  * Author:                  TONYTANG
  * Create Date:             2026/05/26
@@ -26,6 +29,7 @@ public class PVERDInitializer : SystemRDInitializer
     /// </summary>
     protected override void InitRedDotInfos()
     {
+        AddRedDotInfo(RedDotNames.LEVEL_PVE_ENTRY, "关卡PVE入口红点");
         AddRedDotInfo<PVERewardRDH>(RedDotNames.PVE_REWARD_ENTRY, "PVE奖励入口红点");
     }
 }

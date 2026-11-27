@@ -1,3 +1,6 @@
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
 /*
  * Description:             CommonBtnWidget.cs
  * Author:                  TONYTANG
@@ -5,106 +8,98 @@
  */
 
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// CommonBtnWidget.cs
-/// 通用按钮组件
+/// 组合按钮视图。文本、点击回调和红点目标分别配置，
+/// 红点订阅由红点视图自身负责。
 /// </summary>
 public class CommonBtnWidget : MonoBehaviour
 {
-    /// <summary>
-    /// 按钮
-    /// </summary>
-    [Header("按钮")]
+    [Header("Button")]
     public Button Btn;
 
-    /// <summary>
-    /// 文本
-    /// </summary>
-    [Header("文本")]
+    [Header("Text")]
     public Text Txt;
 
-    /// <summary>
-    /// 红点组件
-    /// </summary>
-    [Header("红点组件")]
+    [Header("Red dot view")]
     public RedDotWidget RDWidget;
 
-    /// <summary>
-    /// 文本
-    /// </summary>
     private string mTxt;
-
-    /// <summary>
-    /// 点击回调
-    /// </summary>
     private Action mClickCb;
-
-    /// <summary>
-    /// 红点名
-    /// </summary>
-    private string mRedDotName;
 
     private void Awake()
     {
         AddAllListeners();
     }
 
-    /// <summary>
-    /// 添加所有监听
-    /// </summary>
-    private void AddAllListeners()
+    private void OnDestroy()
     {
-        Btn.onClick.AddListener(OnBtnClick);
+        if (Btn != null)
+        {
+            Btn.onClick.RemoveListener(OnBtnClick);
+        }
+        ClearRedDotName();
     }
 
-    /// <summary>
-    /// 初始化
-    /// </summary>
-    /// <param name="txt">文本</param>
-    /// <param name="clickCb">点击回调</param>
-    /// <param name="redDotName">红点名</param>
-    public void Init(string txt, Action clickCb = null, string redDotName = null)
+    private void AddAllListeners()
+    {
+        if (Btn != null)
+        {
+            Btn.onClick.AddListener(OnBtnClick);
+        }
+    }
+
+    public void Init(string txt, Action clickCb = null)
+    {
+        SetText(txt);
+        SetClickCallback(clickCb);
+    }
+
+    public void SetText(string txt)
     {
         mTxt = txt;
-        mClickCb = clickCb;
-        mRedDotName = redDotName;
-        BindRedDotName();
         RefreshView();
     }
 
-    /// <summary>
-    /// 解绑红点
-    /// </summary>
-    public void UnbindRedDotName()
+    public void SetClickCallback(Action clickCb)
     {
-        mRedDotName = null;
-        RDWidget.UnbindRedDotName();
+        mClickCb = clickCb;
     }
 
-    /// <summary>
-    /// 添加所有红点绑定
-    /// </summary>
-    private void BindRedDotName()
+    public void SetRedDotName(string redDotName)
     {
-        RDWidget.Init(mRedDotName);
+        if (RDWidget == null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrEmpty(redDotName))
+        {
+            RDWidget.ClearRedDotName();
+            return;
+        }
+
+        RDWidget.SetRedDotName(redDotName);
     }
 
-    /// <summary>
-    /// 刷新显示
-    /// </summary>
+    public void ClearRedDotName()
+    {
+        if (RDWidget != null)
+        {
+            RDWidget.ClearRedDotName();
+        }
+    }
+
     private void RefreshView()
     {
-        Txt.text = mTxt;
+        if (Txt != null)
+        {
+            Txt.text = mTxt;
+        }
     }
 
-    /// <summary>
-    /// 响应按钮点击
-    /// </summary>
     private void OnBtnClick()
     {
         mClickCb?.Invoke();

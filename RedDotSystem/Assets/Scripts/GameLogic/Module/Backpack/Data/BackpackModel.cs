@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             BackpackModel.cs
  * Author:                  TONYTANG
  * Create Date:             2026/04/03

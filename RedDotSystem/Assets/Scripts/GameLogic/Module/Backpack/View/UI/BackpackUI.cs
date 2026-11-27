@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             BackpackUI.cs
  * Author:                  TONYTANG
  * Create Date:             2022/08/14
@@ -99,6 +102,9 @@ public class BackpackUI : BaseUI
         CloseBtnWidget.Init("关闭", OnBtnCloseClick);
         AddNewItemBtnWidget.Init("点击增加1个当前页签的新道具", OnBtnAddNewItemClick);
         MinusNewItemBtnWidget.Init("点击减少1个当前页签的新道具", OnBtnMinusNewItemClick);
+        ItemTagBtnWidget.Init("道具", OnBtnItemTagClick);
+        ResourceTagBtnWidget.Init("资源", OnBtnResourceTagClick);
+        EquipTagBtnWidget.Init("装备", OnBtnEquipTagClick);
     }
     
     /// <summary>
@@ -110,28 +116,9 @@ public class BackpackUI : BaseUI
         CloseBtnWidget.Init("关闭", null);
         AddNewItemBtnWidget.Init("点击增加1个当前页签的新道具", null);
         MinusNewItemBtnWidget.Init("点击减少1个当前页签的新道具", null);
-    }
-
-    /// <summary>
-    /// 绑定所有红点名
-    /// </summary>
-    protected override void BindAllRedDotNames()
-    {
-        base.BindAllRedDotNames();
-        ItemTagBtnWidget.Init("道具", OnBtnItemTagClick, RedDotNames.BACKPACK_UI_ITEM_TAG);
-        ResourceTagBtnWidget.Init("资源", OnBtnResourceTagClick, RedDotNames.BACKPACK_UI_RESOURCE_TAG);
-        EquipTagBtnWidget.Init("装备", OnBtnEquipTagClick, RedDotNames.BACKPACK_UI_EQUIP_TAG);
-    }
-
-    /// <summary>
-    /// 解绑所有红点名
-    /// </summary>
-    protected override void UnbindAllRedDotNames()
-    {
-        base.UnbindAllRedDotNames();
-        ItemTagBtnWidget.UnbindRedDotName();
-        ResourceTagBtnWidget.UnbindRedDotName();
-        EquipTagBtnWidget.UnbindRedDotName();
+        ItemTagBtnWidget.Init("道具", null);
+        ResourceTagBtnWidget.Init("资源", null);
+        EquipTagBtnWidget.Init("装备", null);
     }
 
     /// <summary>
@@ -139,6 +126,9 @@ public class BackpackUI : BaseUI
     /// </summary>
     private void InitView()
     {
+        ItemTagBtnWidget.SetRedDotName(RedDotNames.BACKPACK_UI_ITEM_TAG);
+        ResourceTagBtnWidget.SetRedDotName(RedDotNames.BACKPACK_UI_RESOURCE_TAG);
+        EquipTagBtnWidget.SetRedDotName(RedDotNames.BACKPACK_UI_EQUIP_TAG);
     }
 
     /// <summary>

@@ -1,0 +1,17 @@
+{
+  "name": "RedDot.Unity",
+  "rootNamespace": "Game.RedDot.Unity",
+  "references": [
+    "RedDot.Runtime",
+    "UnityEngine.UI"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

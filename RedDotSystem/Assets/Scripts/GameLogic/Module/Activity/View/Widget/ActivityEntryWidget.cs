@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             ActivityEntryWidget.cs
  * Author:                  TONYTANG
  * Create Date:             2026/05/27
@@ -60,17 +63,14 @@ public class ActivityEntryWidget : MonoBehaviour
     public void Init(int activityID)
     {
         mActivityID = activityID;
-        BindRedDotName();
+        ConfigureRedDotView();
         RefreshView();
     }
 
-    /// <summary>
-    /// 添加所有红点绑定
-    /// </summary>
-    private void BindRedDotName()
+    private void ConfigureRedDotView()
     {
         var actEntryRedDotName = ActivityAgent.GetActEntryRedDotName(mActivityID);
-        RDWidget.Init(actEntryRedDotName);
+        RDWidget.SetRedDotName(actEntryRedDotName);
     }
 
     /// <summary>

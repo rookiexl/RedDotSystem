@@ -1,4 +1,7 @@
-﻿/*
+﻿using Game.RedDot;
+using Game.RedDot.Unity;
+
+/*
  * Description:             MailUIBattleMailRDH.cs
  * Author:                  TONYTANG
  * Create Date:             2026/04/06
@@ -8,7 +11,7 @@
 /// MailUIBattleMailRDH.cs
 /// 邮件界面战斗邮件红点处理器
 /// </summary>
-public class MailUIBattleMailRDH : RedDotHandler
+public class MailUIBattleMailRDH : GameRedDotHandler
 {
     /// <summary>
     /// 初始化红点数据
