@@ -92,6 +92,7 @@ public class RedDotInitializer : IRedDotRegistrar
         mRegisteredInitializers.Clear();
         AllFuncRedDotInitializerMap.Clear();
         IsRegistrationOpen = true;
+        RedDotModel.Singleton.BeginDerivedDataBatch();
     }
 
     /// <summary>
@@ -144,6 +145,7 @@ public class RedDotInitializer : IRedDotRegistrar
         }
 
         IsRegistrationOpen = false;
+        RedDotModel.Singleton.EndDerivedDataBatch();
         IsInitComplete = true;
     }
 
@@ -152,7 +154,12 @@ public class RedDotInitializer : IRedDotRegistrar
     /// </summary>
     public void Dispose()
     {
+        var wasRegistrationOpen = IsRegistrationOpen;
         DestroyAllRegisteredInitializers();
+        if(wasRegistrationOpen)
+        {
+            RedDotModel.Singleton.EndDerivedDataBatch();
+        }
         mRegisteredInitializers.Clear();
         AllFuncRedDotInitializerMap.Clear();
         IsRegistrationOpen = false;

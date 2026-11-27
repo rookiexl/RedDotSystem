@@ -59,6 +59,21 @@ public class RedDotModel
     private Dictionary<string, List<string>> mRedDotUnitNameMap;
 
     /// <summary>
+    /// 重建派生父子关系时使用的临时父红点名列表。
+    /// </summary>
+    private List<string> mTempParentRedDotNameList;
+
+    /// <summary>
+    /// 当前是否处于批量派生关系更新阶段。
+    /// </summary>
+    private int mDerivedDataBatchDepth;
+
+    /// <summary>
+    /// 派生关系是否存在待重建数据。
+    /// </summary>
+    private bool mDerivedDataDirty;
+
+    /// <summary>
     /// 红点前缀树
     /// </summary>
     public Trie RedDotTrie
@@ -76,6 +91,9 @@ public class RedDotModel
         mRedDotUnitResultMap = new Dictionary<string, int>();
         mRedDotInfoMap = new Dictionary<string, RedDotInfo>();
         mRedDotUnitNameMap = new Dictionary<string, List<string>>();
+        mTempParentRedDotNameList = new List<string>();
+        mDerivedDataBatchDepth = 0;
+        mDerivedDataDirty = false;
         RedDotTrie = new Trie(Separator);
     }
 
@@ -101,6 +119,8 @@ public class RedDotModel
         mRedDotUnitResultMap.Clear();
         mRedDotInfoMap.Clear();
         mRedDotUnitNameMap.Clear();
+        mDerivedDataBatchDepth = 0;
+        mDerivedDataDirty = false;
         RedDotTrie.Dispose();
         IsInitCompelte = false;
     }
@@ -123,6 +143,8 @@ public class RedDotModel
         redDotInfo.Init(redDotName, redDotDes);
         mRedDotInfoMap.Add(redDotName, redDotInfo);
         RedDotTrie.AddWord(redDotName);
+        RequestRebuildDerivedRedDotData();
+        RedDotManager.Singleton.ForceRefreshRedDotName(redDotName);
         return (true, redDotInfo);
     }
 
@@ -147,6 +169,8 @@ public class RedDotModel
         // 不然后续可能找不到当前红点信息
         mRedDotInfoMap.Add(redDotName, redDotInfo);
         RedDotTrie.AddWord(redDotName);
+        RequestRebuildDerivedRedDotData();
+        RedDotManager.Singleton.ForceRefreshRedDotName(redDotName);
         redDotHandler.Init(redDotInfo);
         return (true, redDotInfo);
     }
@@ -174,6 +198,8 @@ public class RedDotModel
         // 不然后续可能找不到当前红点信息
         mRedDotInfoMap.Add(redDotName, redDotInfo);
         RedDotTrie.AddWord(redDotName);
+        RequestRebuildDerivedRedDotData();
+        RedDotManager.Singleton.ForceRefreshRedDotName(redDotName);
         redDotHandler.Init(redDotInfo);
 
         return (true, redDotInfo);
@@ -191,10 +217,109 @@ public class RedDotModel
             Debug.LogError($"找不到红点名:{redDotName}的红点名信息，移除失败！");
             return false;
         }
+        ForceRefreshRedDotNameAndParents(redDotName);
         existRedDotInfo.Clear();
         mRedDotInfoMap.Remove(redDotName);
         RedDotTrie.RemoveWord(redDotName);
+        RequestRebuildDerivedRedDotData();
         return true;
+    }
+
+    /// <summary>
+    /// 进入批量派生关系更新阶段。
+    /// </summary>
+    internal void BeginDerivedDataBatch()
+    {
+        mDerivedDataBatchDepth++;
+    }
+
+    /// <summary>
+    /// 结束批量派生关系更新阶段，并在最外层结束时统一重建。
+    /// </summary>
+    internal void EndDerivedDataBatch()
+    {
+        if(mDerivedDataBatchDepth <= 0)
+        {
+            return;
+        }
+
+        mDerivedDataBatchDepth--;
+        if(mDerivedDataBatchDepth == 0 && mDerivedDataDirty)
+        {
+            RebuildDerivedRedDotData();
+        }
+    }
+
+    /// <summary>
+    /// 标记派生关系需要重建；批量更新阶段只记录脏标记。
+    /// </summary>
+    internal void RequestRebuildDerivedRedDotData()
+    {
+        mDerivedDataDirty = true;
+        if(mDerivedDataBatchDepth > 0)
+        {
+            return;
+        }
+        RebuildDerivedRedDotData();
+    }
+
+    /// <summary>
+    /// 根据所有红点名的本地单元绑定，重新构建父级有效单元集合和反向索引。
+    /// Note:
+    /// 子节点可以先于父节点注册。父节点后续注册时，再次执行本方法即可补齐汇总关系。
+    /// </summary>
+    internal void RebuildDerivedRedDotData()
+    {
+        mDerivedDataDirty = false;
+        foreach(var redDotInfo in mRedDotInfoMap.Values)
+        {
+            redDotInfo.ClearEffectiveRedDotUnits();
+        }
+
+        foreach(var redDotInfo in mRedDotInfoMap.Values)
+        {
+            foreach(var redDotUnitBindData in redDotInfo.LocalRedDotUnitBindDataMap.Values)
+            {
+                var redDotUnit = redDotUnitBindData.RedDotUnit;
+                redDotInfo.AddEffectiveRedDotUnit(redDotUnit);
+                if(!redDotUnitBindData.IsRecursive)
+                {
+                    continue;
+                }
+
+                mTempParentRedDotNameList.Clear();
+                GetParentRedDotNameList(redDotName: redDotInfo.RedDotName,
+                    parentRedDotNameList: ref mTempParentRedDotNameList);
+                foreach(var parentRedDotName in mTempParentRedDotNameList)
+                {
+                    var parentRedDotInfo = GetRedDotInfoByName(parentRedDotName);
+                    parentRedDotInfo?.AddEffectiveRedDotUnit(redDotUnit);
+                }
+            }
+        }
+
+        mRedDotUnitNameMap.Clear();
+        foreach(var redDotInfo in mRedDotInfoMap.Values)
+        {
+            foreach(var redDotUnit in redDotInfo.RedDotUnitList)
+            {
+                AddRedDotUnitAndName(redDotUnit, redDotInfo.RedDotName);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 强制刷新指定红点名及其所有已注册父红点。
+    /// </summary>
+    private void ForceRefreshRedDotNameAndParents(string redDotName)
+    {
+        RedDotManager.Singleton.ForceRefreshRedDotName(redDotName);
+        mTempParentRedDotNameList.Clear();
+        GetParentRedDotNameList(redDotName, ref mTempParentRedDotNameList);
+        foreach(var parentRedDotName in mTempParentRedDotNameList)
+        {
+            RedDotManager.Singleton.ForceRefreshRedDotName(parentRedDotName);
+        }
     }
 
     /// <summary>

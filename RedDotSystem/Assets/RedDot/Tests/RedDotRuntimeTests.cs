@@ -118,6 +118,118 @@ namespace Game.RedDot.Tests
         }
 
         [Test]
+        public void ParentRegisteredAfterChildStillAggregatesChildUnits()
+        {
+            const string parentRedDotName = "TEST_LATE_PARENT";
+            const string childRedDotName = parentRedDotName + "|CHILD";
+            const string redDotUnit = "TEST_LATE_PARENT_UNIT";
+
+            var (childAdded, _) = RedDotModel.Singleton.AddRedDotInfo(
+                childRedDotName,
+                "Child registered before parent");
+            Assert.IsTrue(childAdded);
+
+            var (unitAdded, _) = RedDotModel.Singleton.AddRedDotUnitInfo(
+                redDotUnit,
+                "Late parent test unit",
+                () => 4,
+                RedDotType.NUMBER);
+            Assert.IsTrue(unitAdded);
+
+            var childInfo = RedDotModel.Singleton.GetRedDotInfoByName(childRedDotName);
+            Assert.IsTrue(childInfo.AddRedDotUnit(redDotUnit));
+
+            var (parentAdded, parentInfo) = RedDotModel.Singleton.AddRedDotInfo(
+                parentRedDotName,
+                "Parent registered after child");
+            Assert.IsTrue(parentAdded);
+            Assert.IsNotNull(parentInfo);
+
+            RedDotManager.Singleton.EvaluateAllDirtyNow();
+
+            CollectionAssert.Contains(parentInfo.RedDotUnitList, redDotUnit);
+            Assert.AreEqual(4, RedDotManager.Singleton.GetRedDotResult(childRedDotName));
+            Assert.AreEqual(4, RedDotManager.Singleton.GetRedDotResult(parentRedDotName));
+        }
+
+        [Test]
+        public void RegistrationDefersParentResolutionUntilComplete()
+        {
+            const string parentRedDotName = "TEST_BATCH_PARENT";
+            const string childRedDotName = parentRedDotName + "|CHILD";
+            const string redDotUnit = "TEST_BATCH_PARENT_UNIT";
+
+            RedDotInitializer.Singleton.BeginRegistration();
+            Assert.IsTrue(RedDotModel.Singleton.AddRedDotInfo(
+                childRedDotName,
+                "Child added during registration batch").Item1);
+            Assert.IsTrue(RedDotModel.Singleton.AddRedDotUnitInfo(
+                redDotUnit,
+                "Registration batch test unit",
+                () => 6,
+                RedDotType.NUMBER).Item1);
+
+            var childInfo = RedDotModel.Singleton.GetRedDotInfoByName(childRedDotName);
+            Assert.IsTrue(childInfo.AddRedDotUnit(redDotUnit));
+            Assert.IsTrue(RedDotModel.Singleton.AddRedDotInfo(
+                parentRedDotName,
+                "Parent added during registration batch").Item1);
+
+            var parentInfo = RedDotModel.Singleton.GetRedDotInfoByName(parentRedDotName);
+            CollectionAssert.DoesNotContain(parentInfo.RedDotUnitList, redDotUnit);
+
+            RedDotInitializer.Singleton.CompleteRegistration();
+
+            CollectionAssert.Contains(childInfo.RedDotUnitList, redDotUnit);
+            CollectionAssert.Contains(parentInfo.RedDotUnitList, redDotUnit);
+            RedDotManager.Singleton.EvaluateAllDirtyNow();
+            Assert.AreEqual(6, RedDotManager.Singleton.GetRedDotResult(parentRedDotName));
+        }
+
+        [Test]
+        public void SharedUnitRemainsOnParentUntilLastChildUnbinds()
+        {
+            const string parentRedDotName = "TEST_SHARED_PARENT";
+            const string childRedDotName = parentRedDotName + "|CHILD";
+            const string redDotUnit = "TEST_SHARED_PARENT_UNIT";
+
+            Assert.IsTrue(RedDotModel.Singleton.AddRedDotInfo(
+                parentRedDotName,
+                "Shared parent").Item1);
+            Assert.IsTrue(RedDotModel.Singleton.AddRedDotInfo(
+                childRedDotName,
+                "First shared child").Item1);
+            Assert.IsTrue(RedDotModel.Singleton.AddRedDotInfo(
+                parentRedDotName + "|OTHER_CHILD",
+                "Second shared child").Item1);
+
+            Assert.IsTrue(RedDotModel.Singleton.AddRedDotUnitInfo(
+                redDotUnit,
+                "Shared parent test unit",
+                () => 5,
+                RedDotType.NUMBER).Item1);
+
+            var firstChildInfo = RedDotModel.Singleton.GetRedDotInfoByName(childRedDotName);
+            var secondChildInfo = RedDotModel.Singleton.GetRedDotInfoByName(
+                parentRedDotName + "|OTHER_CHILD");
+            var parentInfo = RedDotModel.Singleton.GetRedDotInfoByName(parentRedDotName);
+            Assert.IsTrue(firstChildInfo.AddRedDotUnit(redDotUnit));
+            Assert.IsTrue(secondChildInfo.AddRedDotUnit(redDotUnit));
+
+            RedDotManager.Singleton.EvaluateAllDirtyNow();
+            CollectionAssert.Contains(parentInfo.RedDotUnitList, redDotUnit);
+            Assert.AreEqual(5, RedDotManager.Singleton.GetRedDotResult(parentRedDotName));
+
+            Assert.IsTrue(firstChildInfo.RemoveRedDotUnit(redDotUnit));
+            CollectionAssert.Contains(parentInfo.RedDotUnitList, redDotUnit);
+            Assert.AreEqual(5, RedDotManager.Singleton.GetRedDotResult(parentRedDotName));
+
+            Assert.IsTrue(secondChildInfo.RemoveRedDotUnit(redDotUnit));
+            CollectionAssert.DoesNotContain(parentInfo.RedDotUnitList, redDotUnit);
+            Assert.AreEqual(0, RedDotManager.Singleton.GetRedDotResult(parentRedDotName));
+        }
+
+        [Test]
         public void InitializerSupportsModuleRegistrationPhases()
         {
             var initializer = RedDotInitializer.Singleton;

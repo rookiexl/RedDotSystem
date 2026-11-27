@@ -86,7 +86,6 @@ public class GameLauncher : MonoBehaviour
         {
             new GameDataModule(),
             new SystemUnlockModule(),
-            // 主界面的父红点必须先于各功能子模块注册。
             new MainUIModule(MainUI),
             new BackpackModule(),
             new MailModule(),
