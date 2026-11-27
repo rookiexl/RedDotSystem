@@ -14,6 +14,11 @@ using Game.RedDot.Unity;
 public class ActivityData
 {
     /// <summary>
+    /// 当前活动动态红点注册作用域
+    /// </summary>
+    private RedDotScope mRedDotScope;
+
+    /// <summary>
     /// 活动配置id
     /// </summary>
     public int ActivityConfId
@@ -87,6 +92,10 @@ public class ActivityData
         {
             SetIsActive(false);
         }
+        else
+        {
+            DisposeRedDotScope();
+        }
     }
 
     /// <summary>
@@ -140,12 +149,36 @@ public class ActivityData
     /// </summary>
     protected void InitRedDotInfos()
     {
+        DisposeRedDotScope();
+        var scope = RedDotInitializer.Singleton.CreateScope(
+            $"Activity:{ActivityConfId}");
         var actRedDotEntryName = ActivityAgent.GetActEntryRedDotName(ActivityConfId);
-        RedDotModel.Singleton.AddRedDotInfo(actRedDotEntryName, $"活动Id:{ActivityConfId}入口红点");
         var actRedDot1EntryName = ActivityAgent.GetActRedDot1EntryName(ActivityConfId);
-        RedDotModel.Singleton.AddDynamicRedDotInfo<ActRed1NumRDH, int>(actRedDot1EntryName, $"活动Id:{ActivityConfId}红点1入口红点", ActivityConfId);
         var actRedDot2EntryName = ActivityAgent.GetActRedDot2EntryName(ActivityConfId);
-        RedDotModel.Singleton.AddDynamicRedDotInfo<ActRed2NumRDH, int>(actRedDot2EntryName, $"活动Id:{ActivityConfId}红点2入口红点", ActivityConfId);
+
+        if(!scope.AddRedDotInfo(
+               actRedDotEntryName,
+               $"活动Id:{ActivityConfId}入口红点") ||
+           !scope.AddDynamicRedDotInfo<ActRed1NumRDH, int>(
+               actRedDot1EntryName,
+               $"活动Id:{ActivityConfId}红点1入口红点",
+               ActivityConfId) ||
+           !scope.AddDynamicRedDotInfo<ActRed2NumRDH, int>(
+               actRedDot2EntryName,
+               $"活动Id:{ActivityConfId}红点2入口红点",
+               ActivityConfId))
+        {
+            scope.Dispose();
+            return;
+        }
+
+        if(!scope.Commit())
+        {
+            scope.Dispose();
+            return;
+        }
+
+        mRedDotScope = scope;
     }
 
     /// <summary>
@@ -153,11 +186,19 @@ public class ActivityData
     /// </summary>
     protected void RemoveAllRedDotInfos()
     {
-        var actRedDotEntryName = ActivityAgent.GetActEntryRedDotName(ActivityConfId);
-        RedDotModel.Singleton.RemoveRedDotInfo(actRedDotEntryName);
-        var actRedDot1EntryName = ActivityAgent.GetActRedDot1EntryName(ActivityConfId);
-        RedDotModel.Singleton.RemoveRedDotInfo(actRedDot1EntryName);
-        var actRedDot2EntryName = ActivityAgent.GetActRedDot2EntryName(ActivityConfId);
-        RedDotModel.Singleton.RemoveRedDotInfo(actRedDot2EntryName);
+        DisposeRedDotScope();
+    }
+
+    /// <summary>
+    /// 释放当前活动红点作用域
+    /// </summary>
+    private void DisposeRedDotScope()
+    {
+        if(mRedDotScope == null)
+        {
+            return;
+        }
+        mRedDotScope.Dispose();
+        mRedDotScope = null;
     }
 }
